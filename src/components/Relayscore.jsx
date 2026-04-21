@@ -1,6 +1,4 @@
 import { Card } from 'react-bootstrap'
- 
-const BAR_HEIGHTS = [55, 80, 45, 30, 100, 70, 85]
 
 export default function RelayScore({score,history = [true, true, true, false, true, true, true]}){
 
@@ -19,7 +17,7 @@ export default function RelayScore({score,history = [true, true, true, false, tr
               key={i}
               className="score-bar"
               style={{
-                height: `${BAR_HEIGHTS[i]}%`,
+                height: filled ? "100%" : "30%",
                 backgroundColor: filled ? 'var(--amber)' : 'var(--amber-mid)',
                 opacity: filled ? 1 : 0.35,
               }}
