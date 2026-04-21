@@ -36,3 +36,28 @@ html, body, #root { height: 100%; -webkit-font-smoothing: antialiased; }
 .handoff-textarea:focus { box-shadow: 0 0 0 2px var(--amber-mid) !important; }
 .day-badge         { background: var(--amber-light); color: var(--amber-dark); font-size: 10px; border-radius: 20px; padding: 3px 10px; display: inline-block; }
 .score-ring-wrap   { background-color: #f6f4ef; border-radius: 14px; }
+.logout-btn {
+  font-size: 10px;
+  color: #9a9a94;
+  text-decoration: none;
+  letter-spacing: 0.08em;
+  transition: color 0.2s ease, transform 0.15s ease;
+}
+
+.logout-icon {
+  font-size: 18px;
+  margin-bottom: 2px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+
+.logout-btn:hover {
+  color: var(--amber); /* your theme color */
+  transform: translateY(-1px);
+}
+
+.logout-btn:hover .logout-icon {
+  opacity: 1;
+  transform: scale(1.1);
+}
