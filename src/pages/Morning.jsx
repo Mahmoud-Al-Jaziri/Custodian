@@ -3,8 +3,9 @@ import PageShell from "../components/Pageshell";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import LetterCard from "../components/LetterCard";
-import { getLatestHandoff } from "../services/handoffs";
+import { getLatestHandoff, getAllHandoffs } from "../services/handoffs";
 import { useAuth } from "../context/AuthContext";
+import HistoryOffcanvas from "../components/HistoryOffcanvas";
 
 
 export default function Morning (){
@@ -12,6 +13,10 @@ export default function Morning (){
     const [handoff, setHandoff] = useState(null)
     const [loading, setLoading] = useState(true)
     const navigate = useNavigate()
+
+    const [showHistory, setShowHistory] = useState(false)
+    const [history, setHistory] = useState([])
+    const [historyLoading, setHistoryLoading] = useState(false)
     
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-MY',{hour: '2-digit', minute:'2-digit',hour12: false});
@@ -31,6 +36,19 @@ export default function Morning (){
         if(user) fetchHandoff()
     },[user])
     
+    const handleShowHistory = async () => {
+        setShowHistory(true)
+        setHistoryLoading(true)
+        try {
+        const data = await getAllHandoffs(user.uid)
+        setHistory(data.slice(0, 7))
+        } catch (err) {
+        console.error(err)
+        } finally {
+        setHistoryLoading(false)
+        }
+    }
+
     return (
         <PageShell>
         <p className="screen-label mb-3">Morning</p>
@@ -51,9 +69,20 @@ export default function Morning (){
             <Button className="btn-amber w-100 py-3 border-0" onClick={() => navigate("/dashboard")}>
             Start today's relay →
             </Button>
-            <Button variant="link" className="text-secondary text-decoration-none" style={{ fontSize: 12 }}>
-            Read last week's notes
+            <Button
+                variant="link"
+                className="text-secondary text-decoration-none"
+                style={{ fontSize: 12 }}
+                onClick={handleShowHistory}
+                >
+                Read last week's notes
             </Button>
+            <HistoryOffcanvas
+                show={showHistory}
+                onHide={() => setShowHistory(false)}
+                history={history}
+                historyLoading={historyLoading}
+            />
         </Stack>
         </PageShell>
   )
