@@ -69,14 +69,17 @@ export default function Morning (){
             <Button className="btn-amber w-100 py-3 border-0" onClick={() => navigate("/dashboard")}>
             Start today's relay →
             </Button>
-            <Button
-                variant="link"
-                className="text-secondary text-decoration-none"
-                style={{ fontSize: 12 }}
-                onClick={handleShowHistory}
-                >
-                Read last week's notes
-            </Button>
+            
+                <Button 
+                    variant="outline-secondary" 
+                    size="sm" 
+                    className="rounded-pill px-3 my-3" 
+                    onClick={handleShowHistory}
+                    >
+                    📜 Read last week's notes
+                </Button>
+
+               
             <HistoryOffcanvas
                 show={showHistory}
                 onHide={() => setShowHistory(false)}
