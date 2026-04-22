@@ -5,6 +5,7 @@ import PageShell from "../components/PageShell.jsx"
 import RelayScore from "../components/RelayScore.jsx"
 import { getAllHandoffs } from "../services/handoffs.js"
 import { useAuth } from "../context/AuthContext.jsx"
+import PomodoroTimer from "../components/PomodoroTimer.jsx"
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -78,7 +79,7 @@ export default function Dashboard() {
       </div>
 
       <RelayScore score={score} history={history} />
-
+      <PomodoroTimer />
       {oneThing ? (
         <Card className="one-thing-card border-0 mb-3">
           <Card.Body className="p-3">
