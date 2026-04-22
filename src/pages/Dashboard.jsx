@@ -79,7 +79,7 @@ export default function Dashboard() {
       </div>
 
       <RelayScore score={score} history={history} />
-      <PomodoroTimer />
+
       {oneThing ? (
         <Card className="one-thing-card border-0 mb-3">
           <Card.Body className="p-3">
@@ -100,13 +100,36 @@ export default function Dashboard() {
         </Card>
       )}
 
+      <PomodoroTimer />
+
+      <Card className="one-thing-card border-0 mb-3">
+        <Card.Body className="p-3 text-center">
+          <p
+            className="font-serif mb-0"
+            style={{
+              fontSize: 14,
+              lineHeight: 1.7,
+              color: "#6f6f69",
+              fontStyle: "italic"
+            }}
+          >
+            You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not win</span> today.<br />
+            You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not see</span> the result.<br />
+            Play well anyway.<br />
+            <span>
+              The next version of you inherits this.
+            </span>
+          </p>
+        </Card.Body>
+      </Card>
+
       <Button
         variant="outline-secondary"
         className="w-100 py-3"
         style={{ fontSize: 14, borderColor: "rgba(0,0,0,0.15)" }}
         onClick={() => navigate("/evening")}
       >
-        Write tonight's handoff
+        WRITE TONIGHT'S HANDOFF
       </Button>
     </PageShell>
   )
