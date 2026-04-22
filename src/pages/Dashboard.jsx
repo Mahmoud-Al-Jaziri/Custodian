@@ -124,9 +124,7 @@ export default function Dashboard() {
       </Card>
 
       <Button
-        variant="outline-secondary"
-        className="w-100 py-3"
-        style={{ fontSize: 14, borderColor: "rgba(0,0,0,0.15)" }}
+        className="btn-amber w-100 py-3 border-0"
         onClick={() => navigate("/evening")}
       >
         WRITE TONIGHT'S HANDOFF

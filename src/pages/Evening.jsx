@@ -330,8 +330,18 @@ export default function Evening() {
               className="btn-amber w-100 py-3 border-0"
               onClick={handleSubmit}
               disabled={saving || !note.trim()}
+              style={
+                saving || !note.trim()
+                  ? {
+                      backgroundColor: "#e0e0e0",
+                      color: "#8a8a8a",
+                      cursor: "not-allowed",
+                      opacity: 1,
+                    }
+                  : {}
+              }
             >
-              {uploading ? "Uploading file..." : saving ? "Passing..." : "Pass the baton →"}
+              {uploading ? "Uploading file..." : saving ? "Passing..." : "SEAL AND PASS TO TOMORROW →"}
             </Button>
           </Stack>
         </>

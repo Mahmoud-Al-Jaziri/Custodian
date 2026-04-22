@@ -67,7 +67,7 @@ export default function Morning (){
 
         <Stack gap={2} className="mt-3">
             <Button className="btn-amber w-100 py-3 border-0" onClick={() => navigate("/dashboard")}>
-            Start today's relay →
+            START TODAY'S RELAY →
             </Button>
             
                 <Button 
