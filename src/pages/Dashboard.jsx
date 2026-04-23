@@ -22,16 +22,29 @@ export default function Dashboard() {
     async function fetchData() {
       try {
         const data = await getAllHandoffs(user.uid)
-        setHandoffs(data)
+      setHandoffs(data)
 
-        // relay score
-        const signupDate = new Date(user.metadata.creationTime)
-        const today = new Date()
-        const totalDays = Math.max(1, Math.floor((today - signupDate) / (1000 * 60 * 60 * 24)))
-        const handoffDays = data.length
-        const relayScore = Math.round((handoffDays / totalDays) * 100)
-        setScore(Math.min(relayScore, 100))
-        setDayCount(handoffDays)
+      const handoffDates = data.map(h =>
+        new Date(h.createdAt).toISOString().split("T")[0]
+      )
+
+      const uniqueActiveDays = new Set(handoffDates)
+      const activeDaysCount = uniqueActiveDays.size
+
+      const signupDate = new Date(user.metadata.creationTime)
+      const today = new Date()
+
+      const totalDays = Math.max(
+        1,
+        Math.floor((today - signupDate) / (1000 * 60 * 60 * 24))
+      )
+
+      const relayScore = Math.round(
+        (activeDaysCount / totalDays) * 100
+      )
+
+      setScore(Math.min(relayScore, 100))
+      setDayCount(activeDaysCount)
 
         // last 7 days history
         const last7 = Array.from({ length: 7 }, (_, i) => {
