@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Evening from './pages/Evening'
 import Morning from './pages/Morning'
 import Dashboard from './pages/Dashboard'
@@ -9,7 +9,7 @@ import Onboarding from './pages/Onboarding'
 function App() {
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Navigate to={localStorage.getItem("onboarded") ? "/login" : "/onboarding"} replace />} />
         <Route path="/evening" element={
@@ -32,7 +32,7 @@ function App() {
       </Routes>
       
 
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 
