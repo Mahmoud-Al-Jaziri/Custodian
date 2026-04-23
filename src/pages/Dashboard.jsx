@@ -19,58 +19,51 @@ export default function Dashboard() {
   const [dayCount, setDayCount] = useState(0)
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const data = await getAllHandoffs(user.uid)
+  async function fetchData() {
+    try {
+      const data = await getAllHandoffs(user.uid)
       setHandoffs(data)
-
-      const handoffDates = data.map(h =>
-        new Date(h.createdAt).toISOString().split("T")[0]
-      )
-
-      const uniqueActiveDays = new Set(handoffDates)
-      const activeDaysCount = uniqueActiveDays.size
 
       const signupDate = new Date(user.metadata.creationTime)
       const today = new Date()
 
       const totalDays = Math.max(
         1,
-        Math.floor((today - signupDate) / (1000 * 60 * 60 * 24))
+        Math.floor((today - signupDate) / (1000 * 60 * 60 * 24)) + 1
       )
 
-      const relayScore = Math.round(
-        (activeDaysCount / totalDays) * 100
+      const uniqueHandoffDays = new Set(
+        data.map(h => h.relay_date?.slice(0, 10))
+      ).size
+
+      const relayScore = Math.round((uniqueHandoffDays / totalDays) * 100)
+
+      setScore(relayScore)
+      setDayCount(uniqueHandoffDays)
+
+      const last7 = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        return d.toLocaleDateString("en-CA")
+      }).reverse()
+
+      const history7 = last7.map(date =>
+        data.some(h => h.relay_date?.slice(0, 10) === date)
       )
 
-      setScore(Math.min(relayScore, 100))
-      setDayCount(activeDaysCount)
+      setHistory(history7)
 
-        // last 7 days history
-        const last7 = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date()
-          d.setDate(d.getDate() - i)
-          return d.toLocaleDateString("en-CA")
-        }).reverse()
-
-        const history7 = last7.map(date =>
-          data.some(h => h.relay_date?.slice(0, 10) === date)
-        )
-        setHistory(history7)
-
-        // one thing from most recent handoff
-        const latest = data[0]
-        if (latest?.one_thing) setOneThing(latest.one_thing)
-
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
+      const latest = data[0]
+      if (latest?.one_thing) setOneThing(latest.one_thing)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (user) fetchData()
-  }, [user])
+  if (user) fetchData()
+}, [user])
 
   if (loading) return (
     <PageShell>
