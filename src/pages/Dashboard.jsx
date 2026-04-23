@@ -32,12 +32,7 @@ export default function Dashboard() {
         const relayScore = Math.round((handoffDays / totalDays) * 100)
         setScore(Math.min(relayScore, 100))
         setDayCount(handoffDays)
-        console.log({
-                    signupDate,
-                    today,
-                    totalDays,
-                    handoffDays: data.length
-                  })
+
         // last 7 days history
         const last7 = Array.from({ length: 7 }, (_, i) => {
           const d = new Date()
