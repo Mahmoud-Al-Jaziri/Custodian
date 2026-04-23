@@ -23,7 +23,7 @@ export default function Login() {
   const [show, setShow] = useState(false)
 
   const navigate = useNavigate()
-  const API_URL = "http://localhost:3000/api"
+  const API_URL = import.meta.env.VITE_API_URL;
 
   //  Reset modal state on open
   const openSignup = () => {

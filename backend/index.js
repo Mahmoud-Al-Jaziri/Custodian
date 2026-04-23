@@ -7,7 +7,7 @@ import weatherRouter from "./routes/weather.js";
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: "https://custodian-coral.vercel.app/"
+  origin: "https://custodian-2arm-azure.vercel.app"
 }));
 
 app.use('/api',usersRouter);
