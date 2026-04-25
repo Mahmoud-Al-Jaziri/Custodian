@@ -7,8 +7,13 @@ import weatherRouter from "./routes/weather.js";
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: "custodian-2arm-azure.vercel.app",
-}));
+  origin: "https://custodian-2arm-azure.vercel.app",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}))
+
+app.options("*", cors());
 
 app.use('/api',usersRouter);
 app.use('/api/handoffs',handoffsRouter);
