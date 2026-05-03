@@ -1,54 +1,32 @@
-import {Joyride} from "react-joyride"
-import { useState, useEffect } from "react"
+import Joyride, { STATUS } from 'react-joyride'
 
 const STEPS = [
   {
     target: "#relay-score",
     title: "Your relay score",
-    content:
-      "This is not a streak. It's the percentage of days you've passed the baton. Missing one day doesn't reset everything — it just moves the number slightly.",
+    content: "This is not a streak. It's the percentage of days you've passed the baton. Missing one day doesn't reset everything — it just moves the number slightly.",
     disableBeacon: true,
   },
   {
     target: "#one-thing",
     title: "One thing forward",
-    content:
-      "This comes from what yesterday-you wrote for you. One small action to carry forward today.",
+    content: "This comes from what yesterday-you wrote for you. One small action to carry forward today.",
   },
   {
     target: "#pomodoro",
     title: "Focus timer",
-    content:
-      "25 minutes of focus, 5 minutes of rest. Use it to actually do the one thing yesterday-you left you.",
+    content: "25 minutes of focus, 5 minutes of rest. Use it to actually do the one thing yesterday-you left you.",
   },
   {
     target: "#write-handoff",
     title: "The most important button",
-    content:
-      "Every evening, press this. Write to tomorrow-you before you sleep. That's the whole app.",
+    content: "Every evening, press this. Write to tomorrow-you before you sleep. That's the whole app.",
   },
 ]
 
 export default function AppTour({ run, onFinish }) {
-  const [stepIndex, setStepIndex] = useState(0)
-
-  // force restart properly when run becomes true
-  useEffect(() => {
-    if (run) {
-      setStepIndex(0)
-    }
-  }, [run])
-
   const handleCallback = (data) => {
-    const { status, index, type } = data
-
-    // move to next step manually (controlled mode)
-    if (type === "step:after") {
-      setStepIndex(index + 1)
-    }
-
-    // finish detection
-    if (status === "finished" || status === "skipped") {
+    if (data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {
       localStorage.setItem("tourDone", "true")
       onFinish()
     }
@@ -58,12 +36,10 @@ export default function AppTour({ run, onFinish }) {
     <Joyride
       steps={STEPS}
       run={run}
-      stepIndex={stepIndex}   // 👈 THIS is the key fix
       continuous
       showSkipButton
       showProgress
       scrollToFirstStep
-      disableBeacon
       callback={handleCallback}
       styles={{
         options: {

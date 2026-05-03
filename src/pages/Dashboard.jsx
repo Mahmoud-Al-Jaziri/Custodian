@@ -11,16 +11,13 @@ import AppTour from "../components/AppTour.jsx"
 export default function Dashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
-
   const [handoffs, setHandoffs] = useState([])
   const [loading, setLoading] = useState(true)
   const [score, setScore] = useState(0)
   const [history, setHistory] = useState([false, false, false, false, false, false, false])
   const [oneThing, setOneThing] = useState(null)
   const [dayCount, setDayCount] = useState(0)
-
   const [runTour, setRunTour] = useState(false)
-  const [tourReady, setTourReady] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
@@ -30,7 +27,6 @@ export default function Dashboard() {
 
         const signupDate = new Date(user.metadata.creationTime)
         const today = new Date()
-
         const totalDays = Math.max(
           1,
           Math.floor((today - signupDate) / (1000 * 60 * 60 * 24)) + 1
@@ -41,7 +37,6 @@ export default function Dashboard() {
         ).size
 
         const relayScore = Math.round((uniqueHandoffDays / totalDays) * 100)
-
         setScore(relayScore)
         setDayCount(uniqueHandoffDays)
 
@@ -54,7 +49,6 @@ export default function Dashboard() {
         const history7 = last7.map(date =>
           data.some(h => h.relay_date?.slice(0, 10) === date)
         )
-
         setHistory(history7)
 
         const latest = data[0]
@@ -70,35 +64,22 @@ export default function Dashboard() {
   }, [user])
 
   useEffect(() => {
-  if (!loading) {
-    const hasDoneTour = localStorage.getItem("tourDone") === "true"
-
-    if (!hasDoneTour) {
-      setRunTour(false) // force reset
-
-      setTimeout(() => {
-        setRunTour(true) // trigger properly
-      }, 300)
+    if (!loading && !runTour && !localStorage.getItem("tourDone")) {
+      setTimeout(() => setRunTour(true), 500)
     }
-  }
-}, [loading])
+  }, [loading])
 
-  if (loading) {
-    return (
-      <PageShell>
-        <div className="d-flex justify-content-center mt-5">
-          <Spinner animation="border" size="sm" />
-        </div>
-      </PageShell>
-    )
-  }
+  if (loading) return (
+    <PageShell>
+      <div className="d-flex justify-content-center mt-5">
+        <Spinner animation="border" size="sm" />
+      </div>
+    </PageShell>
+  )
 
   return (
     <>
-      {tourReady && (
-        <AppTour run={runTour} onFinish={() => setRunTour(false)} />
-      )}
-
+      <AppTour run={runTour} onFinish={() => setRunTour(false)} />
       <PageShell>
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: "0.04em" }}>
@@ -113,21 +94,25 @@ export default function Dashboard() {
           <RelayScore score={score} history={history} />
         </div>
 
-        <Card id="one-thing" className="one-thing-card border-0 mb-3">
-          <Card.Body className="p-3">
-            <p className="screen-label text-amber mb-2">Your one thing today</p>
-
-            {oneThing ? (
+        {oneThing ? (
+          <Card id="one-thing" className="one-thing-card border-0 mb-3">
+            <Card.Body className="p-3">
+              <p className="screen-label text-amber mb-2">Your one thing today</p>
               <p className="font-serif fst-italic mb-0" style={{ fontSize: 14, lineHeight: 1.6 }}>
                 "{oneThing}"
               </p>
-            ) : (
-              <p style={{ fontSize: 13, color: "#9a9a94", fontStyle: "italic" }}>
+            </Card.Body>
+          </Card>
+        ) : (
+          <Card id="one-thing" className="one-thing-card border-0 mb-3">
+            <Card.Body className="p-3">
+              <p className="screen-label text-amber mb-2">Your one thing today</p>
+              <p className="mb-0" style={{ fontSize: 13, color: "#9a9a94", fontStyle: "italic" }}>
                 Yesterday-you didn't leave a one thing. Set one tonight.
               </p>
-            )}
-          </Card.Body>
-        </Card>
+            </Card.Body>
+          </Card>
+        )}
 
         <div id="pomodoro">
           <PomodoroTimer />
@@ -137,17 +122,12 @@ export default function Dashboard() {
           <Card.Body className="p-3 text-center">
             <p
               className="font-serif mb-0"
-              style={{
-                fontSize: 14,
-                lineHeight: 1.7,
-                color: "#6f6f69",
-                fontStyle: "italic"
-              }}
+              style={{ fontSize: 14, lineHeight: 1.7, color: "#6f6f69", fontStyle: "italic" }}
             >
-              You will <b>not win</b> today.<br />
-              You will <b>not see</b> the result.<br />
+              You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not win</span> today.<br />
+              You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not see</span> the result.<br />
               Play well anyway.<br />
-              The next version of you inherits this.
+              <span>The next version of you inherits this.</span>
             </p>
           </Card.Body>
         </Card>
