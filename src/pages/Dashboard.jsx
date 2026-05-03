@@ -94,7 +94,9 @@ export default function Dashboard() {
           </span>
         </div>
 
-        <RelayScore id="relay-score" score={score} history={history} />
+        <div id="relay-score">
+          <RelayScore score={score} history={history} />
+        </div>
 
         {oneThing ? (
           <Card id="one-thing" className="one-thing-card border-0 mb-3">
@@ -116,7 +118,9 @@ export default function Dashboard() {
           </Card>
         )}
 
-        <PomodoroTimer id="pomodoro" />
+        <div id="pomodoro">
+          <PomodoroTimer />
+        </div>
 
         <Card className="one-thing-card border-0 mb-3">
           <Card.Body className="p-3 text-center">
