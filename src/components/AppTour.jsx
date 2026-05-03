@@ -1,4 +1,5 @@
-import {Joyride} from "react-joyride"
+import Joyride from "react-joyride"
+import { useState, useEffect } from "react"
 
 const STEPS = [
   {
@@ -29,16 +30,25 @@ const STEPS = [
 ]
 
 export default function AppTour({ run, onFinish }) {
+  const [stepIndex, setStepIndex] = useState(0)
+
+  // force restart properly when run becomes true
+  useEffect(() => {
+    if (run) {
+      setStepIndex(0)
+    }
+  }, [run])
+
   const handleCallback = (data) => {
-    const { status, action, type } = data
+    const { status, index, type } = data
 
-    const isFinished =
-      status === "finished" ||
-      status === "skipped" ||
-      action === "close" ||
-      type === "tour:end"
+    // move to next step manually (controlled mode)
+    if (type === "step:after") {
+      setStepIndex(index + 1)
+    }
 
-    if (isFinished) {
+    // finish detection
+    if (status === "finished" || status === "skipped") {
       localStorage.setItem("tourDone", "true")
       onFinish()
     }
@@ -48,11 +58,12 @@ export default function AppTour({ run, onFinish }) {
     <Joyride
       steps={STEPS}
       run={run}
+      stepIndex={stepIndex}   // 👈 THIS is the key fix
       continuous
       showSkipButton
       showProgress
       scrollToFirstStep
-      disableBeacon={true}
+      disableBeacon
       callback={handleCallback}
       styles={{
         options: {

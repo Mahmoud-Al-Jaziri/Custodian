@@ -70,29 +70,18 @@ export default function Dashboard() {
   }, [user])
 
   useEffect(() => {
-    if (!loading) {
-      const checkElements = () => {
-        const relay = document.querySelector("#relay-score")
-        const oneThingEl = document.querySelector("#one-thing")
-        const pomodoro = document.querySelector("#pomodoro")
-        const button = document.querySelector("#write-handoff")
+  if (!loading) {
+    const hasDoneTour = localStorage.getItem("tourDone") === "true"
 
-        if (relay && oneThingEl && pomodoro && button) {
-          const hasDoneTour = localStorage.getItem("tourDone") === "true"
+    if (!hasDoneTour) {
+      setRunTour(false) // force reset
 
-          if (!hasDoneTour) {
-            setRunTour(true)
-          }
-
-          setTourReady(true)
-        } else {
-          setTimeout(checkElements, 200)
-        }
-      }
-
-      checkElements()
+      setTimeout(() => {
+        setRunTour(true) // trigger properly
+      }, 300)
     }
-  }, [loading])
+  }
+}, [loading])
 
   if (loading) {
     return (
