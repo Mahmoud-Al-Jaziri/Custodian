@@ -1,5 +1,5 @@
 import { Joyride } from 'react-joyride';
-const { STATUS } = Joyride;
+
 const STEPS = [
   {
     target: "#relay-score",
@@ -36,12 +36,12 @@ const STEPS = [
 
 export default function AppTour({ run, onFinish }) {
   const handleCallback = (data) => {
-    const { status } = data
-    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
-      localStorage.setItem("tourDone", "true")
-      onFinish()
+    console.log("tour status:", data.status)
+    if (data.status === "finished" || data.status === "skipped") {
+        localStorage.setItem("tourDone", "true")
+        onFinish()
     }
-  }
+}
 
   return (
     <Joyride
