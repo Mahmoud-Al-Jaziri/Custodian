@@ -7,7 +7,7 @@ export default function NavBar(){
     const NAV_ITEMS = [
         { path: '/morning',   label: 'morning'  },
         { path: '/dashboard', label: 'relay'    },
-        { path: '/evening',   label: 'evening'  },
+        { path: '/evening',   label: 'evening', id: "nav-evening"  },
     ]
     const {pathname} = useLocation();
     const navigate = useNavigate();

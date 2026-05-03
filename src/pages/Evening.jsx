@@ -150,6 +150,7 @@ export default function Evening() {
         </p>
       ) : weather ? (
         <div
+          id="weather-strip"
           className="mb-3 p-3"
           style={{
             background: "#f6f4ef",

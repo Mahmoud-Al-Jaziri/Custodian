@@ -84,10 +84,10 @@ export default function Dashboard() {
         </span>
       </div>
 
-      <RelayScore score={score} history={history} />
+      <RelayScore id="relay-score" score={score} history={history} />
 
       {oneThing ? (
-        <Card className="one-thing-card border-0 mb-3">
+        <Card id="one-thing" className="one-thing-card border-0 mb-3">
           <Card.Body className="p-3">
             <p className="screen-label text-amber mb-2">Your one thing today</p>
             <p className="font-serif fst-italic mb-0" style={{ fontSize: 14, lineHeight: 1.6 }}>
@@ -96,7 +96,7 @@ export default function Dashboard() {
           </Card.Body>
         </Card>
       ) : (
-        <Card className="one-thing-card border-0 mb-3">
+        <Card id="one-thing" className="one-thing-card border-0 mb-3">
           <Card.Body className="p-3">
             <p className="screen-label text-amber mb-2">Your one thing today</p>
             <p className="mb-0" style={{ fontSize: 13, color: "#9a9a94", fontStyle: "italic" }}>
@@ -106,7 +106,7 @@ export default function Dashboard() {
         </Card>
       )}
 
-      <PomodoroTimer />
+      <PomodoroTimer id="pomodoro" />
 
       <Card className="one-thing-card border-0 mb-3">
         <Card.Body className="p-3 text-center">
@@ -130,6 +130,7 @@ export default function Dashboard() {
       </Card>
 
       <Button
+        id="write-handoff"
         className="btn-amber w-100 py-3 border-0"
         onClick={() => navigate("/evening")}
       >
