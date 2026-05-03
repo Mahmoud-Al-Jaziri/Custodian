@@ -1,4 +1,5 @@
-import Joyride from "react-joyride";
+import Joyride from "react-joyride"
+const { STATUS } = Joyride
 
 const STEPS = [
   {
