@@ -26,8 +26,9 @@ const STEPS = [
 
 export default function AppTour({ run, onFinish }) {
   const handleCallback = (data) => {
-    console.log("tour status:", data.status)
-    if (data.status === "finished" || data.status === "skipped") {
+    const finishedStatuses = ["finished", "skipped"]
+
+    if (finishedStatuses.includes(data.status)) {
         localStorage.setItem("tourDone", "true")
         onFinish()
     }

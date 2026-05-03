@@ -18,7 +18,9 @@ export default function Dashboard() {
   const [history, setHistory] = useState([false, false, false, false, false, false, false])
   const [oneThing, setOneThing] = useState(null)
   const [dayCount, setDayCount] = useState(0)
-  const [runTour, setRunTour] = useState(false)
+  const [runTour, setRunTour] = useState(() => {
+    return localStorage.getItem("tourDone") !== "true"
+  })
 
   useEffect(() => {
   async function fetchData() {
@@ -68,10 +70,11 @@ export default function Dashboard() {
 }, [user])
 
   useEffect(() => {
-  if (!loading && !localStorage.getItem("tourDone")) {
-    setTimeout(() => setRunTour(true), 500)
-  }
-}, [loading])
+    if (!loading && runTour) {
+      const timer = setTimeout(() => setRunTour(true), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [loading, runTour])
 
   if (loading) return (
     <PageShell>
