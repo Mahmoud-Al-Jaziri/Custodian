@@ -52,7 +52,7 @@ export default function AppTour({ run, onFinish }) {
       showSkipButton
       showProgress
       scrollToFirstStep
-      disableBeacon
+      disableBeacon={true}
       callback={handleCallback}
       styles={{
         options: {

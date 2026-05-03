@@ -15,19 +15,12 @@ export default function Dashboard() {
   const [handoffs, setHandoffs] = useState([])
   const [loading, setLoading] = useState(true)
   const [score, setScore] = useState(0)
-  const [history, setHistory] = useState([
-    false,
-    false,
-    false,
-    false,
-    false,
-    false,
-    false,
-  ])
+  const [history, setHistory] = useState([false, false, false, false, false, false, false])
   const [oneThing, setOneThing] = useState(null)
   const [dayCount, setDayCount] = useState(0)
 
   const [runTour, setRunTour] = useState(false)
+  const [tourReady, setTourReady] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
@@ -44,12 +37,10 @@ export default function Dashboard() {
         )
 
         const uniqueHandoffDays = new Set(
-          data.map((h) => h.relay_date?.slice(0, 10))
+          data.map(h => h.relay_date?.slice(0, 10))
         ).size
 
-        const relayScore = Math.round(
-          (uniqueHandoffDays / totalDays) * 100
-        )
+        const relayScore = Math.round((uniqueHandoffDays / totalDays) * 100)
 
         setScore(relayScore)
         setDayCount(uniqueHandoffDays)
@@ -60,8 +51,8 @@ export default function Dashboard() {
           return d.toLocaleDateString("en-CA")
         }).reverse()
 
-        const history7 = last7.map((date) =>
-          data.some((h) => h.relay_date?.slice(0, 10) === date)
+        const history7 = last7.map(date =>
+          data.some(h => h.relay_date?.slice(0, 10) === date)
         )
 
         setHistory(history7)
@@ -80,19 +71,30 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!loading) {
-      const hasDoneTour = localStorage.getItem("tourDone") === "true"
+      const checkElements = () => {
+        const relay = document.querySelector("#relay-score")
+        const oneThingEl = document.querySelector("#one-thing")
+        const pomodoro = document.querySelector("#pomodoro")
+        const button = document.querySelector("#write-handoff")
 
-      if (!hasDoneTour) {
-        const timer = setTimeout(() => {
-          setRunTour(true)
-        }, 300)
+        if (relay && oneThingEl && pomodoro && button) {
+          const hasDoneTour = localStorage.getItem("tourDone") === "true"
 
-        return () => clearTimeout(timer)
+          if (!hasDoneTour) {
+            setRunTour(true)
+          }
+
+          setTourReady(true)
+        } else {
+          setTimeout(checkElements, 200)
+        }
       }
+
+      checkElements()
     }
   }, [loading])
 
-  if (loading)
+  if (loading) {
     return (
       <PageShell>
         <div className="d-flex justify-content-center mt-5">
@@ -100,20 +102,17 @@ export default function Dashboard() {
         </div>
       </PageShell>
     )
+  }
 
   return (
     <>
-      <AppTour run={runTour} onFinish={() => setRunTour(false)} />
+      {tourReady && (
+        <AppTour run={runTour} onFinish={() => setRunTour(false)} />
+      )}
 
       <PageShell>
         <div className="d-flex justify-content-between align-items-center mb-4">
-          <div
-            style={{
-              fontSize: 16,
-              fontWeight: 500,
-              letterSpacing: "0.04em",
-            }}
-          >
+          <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: "0.04em" }}>
             Relay<span className="text-amber">.</span>
           </div>
           <span className="day-badge">
@@ -127,26 +126,14 @@ export default function Dashboard() {
 
         <Card id="one-thing" className="one-thing-card border-0 mb-3">
           <Card.Body className="p-3">
-            <p className="screen-label text-amber mb-2">
-              Your one thing today
-            </p>
+            <p className="screen-label text-amber mb-2">Your one thing today</p>
 
             {oneThing ? (
-              <p
-                className="font-serif fst-italic mb-0"
-                style={{ fontSize: 14, lineHeight: 1.6 }}
-              >
+              <p className="font-serif fst-italic mb-0" style={{ fontSize: 14, lineHeight: 1.6 }}>
                 "{oneThing}"
               </p>
             ) : (
-              <p
-                className="mb-0"
-                style={{
-                  fontSize: 13,
-                  color: "#9a9a94",
-                  fontStyle: "italic",
-                }}
-              >
+              <p style={{ fontSize: 13, color: "#9a9a94", fontStyle: "italic" }}>
                 Yesterday-you didn't leave a one thing. Set one tonight.
               </p>
             )}
@@ -165,7 +152,7 @@ export default function Dashboard() {
                 fontSize: 14,
                 lineHeight: 1.7,
                 color: "#6f6f69",
-                fontStyle: "italic",
+                fontStyle: "italic"
               }}
             >
               You will <b>not win</b> today.<br />
