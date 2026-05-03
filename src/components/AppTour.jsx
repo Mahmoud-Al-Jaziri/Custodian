@@ -1,4 +1,4 @@
-import Joyride, { STATUS } from 'react-joyride'
+import Joyride from "react-joyride"
 
 const STEPS = [
   {
@@ -26,7 +26,7 @@ const STEPS = [
 
 export default function AppTour({ run, onFinish }) {
   const handleCallback = (data) => {
-    if (data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {
+    if (data.status === "finished" || data.status === "skipped") {
       localStorage.setItem("tourDone", "true")
       onFinish()
     }
