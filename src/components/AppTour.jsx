@@ -1,38 +1,48 @@
-import { Joyride } from 'react-joyride';
+import Joyride from "react-joyride"
 
 const STEPS = [
   {
     target: "#relay-score",
     title: "Your relay score",
-    content: "This is not a streak. It's the percentage of days you've passed the baton. Missing one day doesn't reset everything — it just moves the number slightly.",
+    content:
+      "This is not a streak. It's the percentage of days you've passed the baton. Missing one day doesn't reset everything — it just moves the number slightly.",
     disableBeacon: true,
   },
   {
     target: "#one-thing",
     title: "One thing forward",
-    content: "This comes from what yesterday-you wrote for you. One small action to carry forward today.",
+    content:
+      "This comes from what yesterday-you wrote for you. One small action to carry forward today.",
   },
   {
     target: "#pomodoro",
     title: "Focus timer",
-    content: "25 minutes of focus, 5 minutes of rest. Use it to actually do the one thing yesterday-you left you.",
+    content:
+      "25 minutes of focus, 5 minutes of rest. Use it to actually do the one thing yesterday-you left you.",
   },
   {
     target: "#write-handoff",
     title: "The most important button",
-    content: "Every evening, press this. Write to tomorrow-you before you sleep. That's the whole app.",
+    content:
+      "Every evening, press this. Write to tomorrow-you before you sleep. That's the whole app.",
   },
 ]
 
 export default function AppTour({ run, onFinish }) {
   const handleCallback = (data) => {
-    const finishedStatuses = ["finished", "skipped"]
+    const { status, action, type } = data
 
-    if (finishedStatuses.includes(data.status)) {
-        localStorage.setItem("tourDone", "true")
-        onFinish()
+    const isFinished =
+      status === "finished" ||
+      status === "skipped" ||
+      action === "close" ||
+      type === "tour:end"
+
+    if (isFinished) {
+      localStorage.setItem("tourDone", "true")
+      onFinish()
     }
-}
+  }
 
   return (
     <Joyride
@@ -42,6 +52,7 @@ export default function AppTour({ run, onFinish }) {
       showSkipButton
       showProgress
       scrollToFirstStep
+      disableBeacon
       callback={handleCallback}
       styles={{
         options: {
