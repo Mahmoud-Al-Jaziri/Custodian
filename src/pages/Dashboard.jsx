@@ -6,6 +6,7 @@ import RelayScore from "../components/Relayscore.jsx"
 import { getAllHandoffs } from "../services/handoffs.js"
 import { useAuth } from "../context/AuthContext.jsx"
 import PomodoroTimer from "../components/PomodoroTimer.jsx"
+import AppTour from "../components/AppTour.jsx"
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -17,6 +18,7 @@ export default function Dashboard() {
   const [history, setHistory] = useState([false, false, false, false, false, false, false])
   const [oneThing, setOneThing] = useState(null)
   const [dayCount, setDayCount] = useState(0)
+  const [runTour, setRunTour] = useState(false)
 
   useEffect(() => {
   async function fetchData() {
@@ -65,6 +67,12 @@ export default function Dashboard() {
   if (user) fetchData()
 }, [user])
 
+  useEffect(() => {
+  if (!loading && !localStorage.getItem("tourDone")) {
+    setTimeout(() => setRunTour(true), 500)
+  }
+}, [loading])
+
   if (loading) return (
     <PageShell>
       <div className="d-flex justify-content-center mt-5">
@@ -74,68 +82,71 @@ export default function Dashboard() {
   )
 
   return (
-    <PageShell>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: "0.04em" }}>
-          Relay<span className="text-amber">.</span>
+    <>
+      <AppTour run={runTour} onFinish={() => setRunTour(false)} />
+      <PageShell>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: "0.04em" }}>
+            Relay<span className="text-amber">.</span>
+          </div>
+          <span className="day-badge">
+            {dayCount} {dayCount === 1 ? "day" : "days"} of carrying
+          </span>
         </div>
-        <span className="day-badge">
-          {dayCount} {dayCount === 1 ? "day" : "days"} of carrying
-        </span>
-      </div>
 
-      <RelayScore id="relay-score" score={score} history={history} />
+        <RelayScore id="relay-score" score={score} history={history} />
 
-      {oneThing ? (
-        <Card id="one-thing" className="one-thing-card border-0 mb-3">
-          <Card.Body className="p-3">
-            <p className="screen-label text-amber mb-2">Your one thing today</p>
-            <p className="font-serif fst-italic mb-0" style={{ fontSize: 14, lineHeight: 1.6 }}>
-              "{oneThing}"
+        {oneThing ? (
+          <Card id="one-thing" className="one-thing-card border-0 mb-3">
+            <Card.Body className="p-3">
+              <p className="screen-label text-amber mb-2">Your one thing today</p>
+              <p className="font-serif fst-italic mb-0" style={{ fontSize: 14, lineHeight: 1.6 }}>
+                "{oneThing}"
+              </p>
+            </Card.Body>
+          </Card>
+        ) : (
+          <Card id="one-thing" className="one-thing-card border-0 mb-3">
+            <Card.Body className="p-3">
+              <p className="screen-label text-amber mb-2">Your one thing today</p>
+              <p className="mb-0" style={{ fontSize: 13, color: "#9a9a94", fontStyle: "italic" }}>
+                Yesterday-you didn't leave a one thing. Set one tonight.
+              </p>
+            </Card.Body>
+          </Card>
+        )}
+
+        <PomodoroTimer id="pomodoro" />
+
+        <Card className="one-thing-card border-0 mb-3">
+          <Card.Body className="p-3 text-center">
+            <p
+              className="font-serif mb-0"
+              style={{
+                fontSize: 14,
+                lineHeight: 1.7,
+                color: "#6f6f69",
+                fontStyle: "italic"
+              }}
+            >
+              You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not win</span> today.<br />
+              You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not see</span> the result.<br />
+              Play well anyway.<br />
+              <span>
+                The next version of you inherits this.
+              </span>
             </p>
           </Card.Body>
         </Card>
-      ) : (
-        <Card id="one-thing" className="one-thing-card border-0 mb-3">
-          <Card.Body className="p-3">
-            <p className="screen-label text-amber mb-2">Your one thing today</p>
-            <p className="mb-0" style={{ fontSize: 13, color: "#9a9a94", fontStyle: "italic" }}>
-              Yesterday-you didn't leave a one thing. Set one tonight.
-            </p>
-          </Card.Body>
-        </Card>
-      )}
 
-      <PomodoroTimer id="pomodoro" />
-
-      <Card className="one-thing-card border-0 mb-3">
-        <Card.Body className="p-3 text-center">
-          <p
-            className="font-serif mb-0"
-            style={{
-              fontSize: 14,
-              lineHeight: 1.7,
-              color: "#6f6f69",
-              fontStyle: "italic"
-            }}
-          >
-            You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not win</span> today.<br />
-            You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not see</span> the result.<br />
-            Play well anyway.<br />
-            <span>
-              The next version of you inherits this.
-            </span>
-          </p>
-        </Card.Body>
-      </Card>
-
-      <Button
-        id="write-handoff"
-        className="btn-amber w-100 py-3 border-0"
-        onClick={() => navigate("/evening")}
-      >
-        WRITE TONIGHT'S HANDOFF
-      </Button>
-    </PageShell>
+        <Button
+          id="write-handoff"
+          className="btn-amber w-100 py-3 border-0"
+          onClick={() => navigate("/evening")}
+        >
+          WRITE TONIGHT'S HANDOFF
+        </Button>
+      </PageShell>
+    </>
   )
 }
