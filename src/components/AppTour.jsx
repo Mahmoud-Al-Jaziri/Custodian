@@ -23,11 +23,6 @@ const STEPS = [
     content: "Every evening, press this. Write to tomorrow-you before you sleep. That's the whole app.",
   },
   {
-    target: "#nav-evening",
-    title: "Evening is where you start",
-    content: "Come here every night. Morning reads what you wrote. The relay only works if you pass the baton.",
-  },
-  {
     target: "#weather-strip",
     title: "Tomorrow's weather",
     content: "Shown while you write your handoff. Ground your note in reality — tomorrow-you will wake up to this.",
