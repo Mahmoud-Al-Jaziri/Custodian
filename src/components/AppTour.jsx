@@ -22,11 +22,6 @@ const STEPS = [
     title: "The most important button",
     content: "Every evening, press this. Write to tomorrow-you before you sleep. That's the whole app.",
   },
-  {
-    target: "#weather-strip",
-    title: "Tomorrow's weather",
-    content: "Shown while you write your handoff. Ground your note in reality — tomorrow-you will wake up to this.",
-  },
 ]
 
 export default function AppTour({ run, onFinish }) {
