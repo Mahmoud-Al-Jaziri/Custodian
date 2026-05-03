@@ -1,5 +1,5 @@
 import { Joyride } from 'react-joyride';
-
+const { STATUS } = Joyride;
 const STEPS = [
   {
     target: "#relay-score",
