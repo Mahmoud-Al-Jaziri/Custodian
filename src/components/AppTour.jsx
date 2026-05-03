@@ -1,4 +1,4 @@
-import Joyride from "react-joyride"
+import {Joyride} from "react-joyride"
 
 const STEPS = [
   {
