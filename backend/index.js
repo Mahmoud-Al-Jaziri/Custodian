@@ -3,6 +3,7 @@ import cors from "cors";
 import usersRouter from "./routes/users.js";
 import handoffsRouter from "./routes/handoffs.js";
 import weatherRouter from "./routes/weather.js";
+import { verifyToken } from "./middleware/auth.js";
 
 const app = express();
 
@@ -19,6 +20,8 @@ app.use(
         return callback(null, true);
       }
 
+      if (origin === "http://localhost:5173") return callback(null, true);
+
       if (
         origin.endsWith(".vercel.app") &&
         origin.includes("custodian-2arm")
@@ -34,8 +37,8 @@ app.use(
 );
 
 app.use("/api", usersRouter);
-app.use("/api/handoffs", handoffsRouter);
-app.use("/api/weather", weatherRouter);
+app.use("/api/handoffs", verifyToken, handoffsRouter);
+app.use("/api/weather", verifyToken, weatherRouter);
 
 const port = process.env.PORT;
 
