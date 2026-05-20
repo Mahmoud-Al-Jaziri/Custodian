@@ -1,10 +1,10 @@
-# Relay
+# Custodian
 
 A daily journaling app — but not in the way you're thinking.
 
-Most journaling apps ask you to reflect on your day. Relay asks you to write to tomorrow's version of yourself. Every evening you leave a note. Every morning you wake up and read what yesterday-you left behind.
+Most journaling apps ask you to reflect on your day. Custodian asks you to write to tomorrow's version of yourself. Every evening you leave a note. Every morning you wake up and read what yesterday-you left behind.
 
-The idea came from a simple observation: you're not the same person every day. Motivation fails because you're relying on a version of yourself that no longer exists by the time you need it. Relay works around that — instead of motivation, it builds stewardship. Today-you takes care of tomorrow-you.
+The idea came from a simple observation: you're not the same person every day. Motivation fails because you're relying on a version of yourself that no longer exists by the time you need it. Custodian works around that — instead of motivation, it builds stewardship. Today-you takes care of tomorrow-you.
 
 ---
 
@@ -14,7 +14,7 @@ The idea came from a simple observation: you're not the same person every day. M
 
 **Morning** — You wake up and read what yesterday-you wrote. No prompts. No journaling questions. Just a letter from a version of you that no longer exists.
 
-**Dashboard** — A relay score (not a streak), the one thing yesterday-you left you, and a Pomodoro timer if you want to actually do that thing.
+**Dashboard** — A custodian score (not a streak), the one thing yesterday-you left you, and a Pomodoro timer if you want to actually do that thing.
 
 ---
 
@@ -35,8 +35,8 @@ The idea came from a simple observation: you're not the same person every day. M
 Clone the repo and install dependencies:
 
 ```bash
-git clone https://github.com/yourusername/relay-app.git
-cd relay-app
+git clone https://github.com/Mahmoud-Al-Jaziri/Custodian.git
+cd Custodian
 npm install
 ```
 
@@ -101,7 +101,7 @@ CREATE TABLE handoffs (
 
 ## A few things worth knowing
 
-The relay score is not a streak. Missing a day doesn't reset anything — it just lowers the percentage slightly. This was intentional. Streaks punish you for being human. A percentage just tells you where you are.
+The custodian score is not a streak. Missing a day doesn't reset anything — it just lowers the percentage slightly. This was intentional. Streaks punish you for being human. A percentage just tells you where you are.
 
 The "yesterday" query doesn't actually fetch yesterday's date. It fetches the most recent handoff before today. This handles the case where you write your note at 1am — technically that's today's date, but it should show up the next morning.
 
