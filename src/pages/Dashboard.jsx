@@ -64,10 +64,10 @@ export default function Dashboard() {
   }, [user])
 
   useEffect(() => {
-    if (!loading && !runTour && !localStorage.getItem("tourDone")) {
-      setTimeout(() => setRunTour(true), 500)
-    }
-  }, [loading])
+  if (!loading && !localStorage.getItem(`tourDone_${user.uid}`)) {
+    setTimeout(() => setRunTour(true), 500)
+  }
+}, [loading])
 
   if (loading) return (
     <PageShell>
@@ -79,7 +79,10 @@ export default function Dashboard() {
 
   return (
     <>
-      <AppTour run={runTour} onFinish={() => setRunTour(false)} />
+      <AppTour run={runTour} onFinish={() => {
+        localStorage.setItem(`tourDone_${user.uid}`, "true")
+        setRunTour(false)
+      }} />
       <PageShell>
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: "0.04em" }}>

@@ -50,8 +50,9 @@ export default function LetterCard({
                 style={{
                   width: "100%",
                   borderRadius: 10,
-                  objectFit: "cover",
-                  maxHeight: 200
+                  objectFit: "contain",
+                  maxHeight: 300,
+                  background: "#f6f4ef"
                 }}
               />
             )}

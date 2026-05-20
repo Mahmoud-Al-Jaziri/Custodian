@@ -42,9 +42,8 @@ export default function AppTour({ run, onFinish }) {
   }, [run, step])
 
   const finish = () => {
-    localStorage.setItem("tourDone", "true")
-    onFinish()
-  }
+  onFinish()
+}
 
   const next = () => {
     if (step < STEPS.length - 1) setStep(step + 1)
