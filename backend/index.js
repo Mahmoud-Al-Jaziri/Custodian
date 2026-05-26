@@ -8,6 +8,12 @@ import { verifyToken } from "./middleware/auth.js";
 
 const app = express();
 
+// We're deployed behind Vercel's reverse proxy. Without this, req.ip is the
+// proxy's address for every request, so rate-limit buckets everyone into one
+// shared bucket. Setting trust proxy = 1 tells Express to read the real
+// client IP from X-Forwarded-For (one hop = Vercel's edge).
+app.set("trust proxy", 1);
+
 app.use(express.json());
 
 app.use(
