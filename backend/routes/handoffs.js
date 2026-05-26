@@ -8,7 +8,6 @@ handoffsRouter.post("/", async (req, res) => {
   try {
     const { user_id, note, one_thing, relay_date, image_url } = req.body;
 
-    // one relay per user per day; use ON CONFLICT for upsert
     const query = `
       INSERT INTO handoffs (user_id, note, one_thing, relay_date, image_url)
       VALUES ($1, $2, $3, $4, $5)
@@ -22,12 +21,74 @@ handoffsRouter.post("/", async (req, res) => {
       note,
       one_thing,
       relay_date,
-      image_url
+      image_url,
     ]);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// BULK CREATE — migrate guest handoffs into the cloud after first sign-in.
+// Also upserts the users row so the FK constraint is satisfied in the same txn.
+//
+// IMPORTANT: this route must be mounted BEFORE the parameterised GET routes
+// (`/:user_id`, `/:user_id/today`, etc) — Express matches in order and
+// `/bulk` would otherwise be captured by `/:user_id`. The order of route
+// declarations below already handles this correctly.
+handoffsRouter.post("/bulk", async (req, res) => {
+  const { handoffs = [], display_name } = req.body;
+  // verifyToken middleware (in index.js) sets req.user.uid from the verified
+  // Firebase ID token — never trust a uid sent in the body for this endpoint.
+  const userId = req.user?.uid;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Ensure the FK target exists. Idempotent.
+    await client.query(
+      `INSERT INTO users (id, display_name)
+       VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE
+         SET display_name = COALESCE(users.display_name, EXCLUDED.display_name)`,
+      [userId, display_name || req.user.email || null]
+    );
+
+    const inserted = [];
+    for (const h of handoffs) {
+      const r = await client.query(
+        `INSERT INTO handoffs (user_id, note, one_thing, relay_date, image_url)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (user_id, relay_date)
+         DO UPDATE SET
+           note = EXCLUDED.note,
+           one_thing = EXCLUDED.one_thing,
+           image_url = COALESCE(EXCLUDED.image_url, handoffs.image_url)
+         RETURNING *`,
+        [
+          userId,
+          h.note ?? "",
+          h.one_thing ?? null,
+          h.relay_date,
+          h.image_url ?? null,
+        ]
+      );
+      inserted.push(r.rows[0]);
+    }
+
+    await client.query("COMMIT");
+    res.status(201).json({ count: inserted.length, handoffs: inserted });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -50,7 +111,7 @@ handoffsRouter.get("/:user_id", async (req, res) => {
   }
 });
 
-//READ ONE - get today's handoff specifically
+// READ ONE - get today's handoff specifically
 handoffsRouter.get("/:user_id/today", async (req, res) => {
   try {
     const { user_id } = req.params;
@@ -65,7 +126,6 @@ handoffsRouter.get("/:user_id/today", async (req, res) => {
     `;
 
     const result = await pool.query(query, [user_id, today]);
-
     res.status(200).json(result.rows[0] || null);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -76,7 +136,7 @@ handoffsRouter.get("/:user_id/today", async (req, res) => {
 handoffsRouter.get("/:user_id/latest", async (req, res) => {
   try {
     const { user_id } = req.params;
-    
+
     const query = `
       SELECT *
       FROM handoffs
@@ -106,15 +166,12 @@ handoffsRouter.put("/:id", async (req, res) => {
       RETURNING *
     `;
 
-    const result = await pool.query(query, [
-      note,
-      one_thing,
-      id,
-      relay_date
-    ]);
+    const result = await pool.query(query, [note, one_thing, id, relay_date]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Handoff not found or not editable" });
+      return res
+        .status(404)
+        .json({ error: "Handoff not found or not editable" });
     }
 
     res.status(200).json(result.rows[0]);
