@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import usersRouter from "./routes/users.js";
 import handoffsRouter from "./routes/handoffs.js";
 import weatherRouter from "./routes/weather.js";
@@ -36,9 +37,23 @@ app.use(
   })
 );
 
+// Rate limit the public weather endpoint so a bad actor can't burn through
+// the OpenWeather API quota. 30 req/min/IP is plenty for legitimate use
+// (one Evening page load makes one request) and painful for scrapers.
+const weatherLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30,             // per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use("/api", usersRouter);
 app.use("/api/handoffs", verifyToken, handoffsRouter);
-app.use("/api/weather", verifyToken, weatherRouter);
+
+// Weather is a public passthrough to OpenWeather. No user identity is
+// involved, so it's intentionally not gated by verifyToken — guests need
+// access too. Rate-limited to protect the API key.
+app.use("/api/weather", weatherLimiter, weatherRouter);
 
 const port = process.env.PORT;
 
