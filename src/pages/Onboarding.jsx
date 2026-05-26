@@ -30,7 +30,7 @@ export default function Onboarding() {
   const handleNext = () => {
     if (isLast) {
       localStorage.setItem("onboarded", "true")
-      navigate("/login")
+      navigate("/dashboard")
     } else {
       setStep(prev => prev + 1)
     }
