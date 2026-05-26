@@ -1,97 +1,239 @@
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { Button, Card, Spinner } from "react-bootstrap"
-import PageShell from "../components/Pageshell.jsx"
-import RelayScore from "../components/Relayscore.jsx"
-import { getAllHandoffs } from "../services/handoffs.js"
-import { useAuth } from "../context/AuthContext.jsx"
-import PomodoroTimer from "../components/PomodoroTimer.jsx"
-import AppTour from "../components/AppTour.jsx"
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button, Card, Spinner } from "react-bootstrap";
+import PageShell from "../components/Pageshell.jsx";
+import RelayScore from "../components/Relayscore.jsx";
+import { getAllHandoffs } from "../services/handoffs.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import PomodoroTimer from "../components/PomodoroTimer.jsx";
+import AppTour from "../components/AppTour.jsx";
+
+const LAST_VISIT_KEY = "lastVisit";
+const PROMPT_DISMISSED_KEY = "upgradePromptDismissedAt";
+
+// Pick a contextual upgrade message based on engagement.
+// Returns null if there's no point nagging right now.
+function chooseUpgradeMessage({ isGuest, handoffCount, daysSinceLastVisit }) {
+  if (!isGuest) return null;
+
+  // Quietly dismissed within the last 3 days? Don't re-show.
+  const dismissedAt = Number(localStorage.getItem(PROMPT_DISMISSED_KEY) || 0);
+  if (dismissedAt && Date.now() - dismissedAt < 1000 * 60 * 60 * 24 * 3) {
+    return null;
+  }
+
+  if (handoffCount >= 7) {
+    return {
+      tone: "high",
+      text: `${handoffCount} batons carried in this browser. One email link locks them in forever.`,
+    };
+  }
+  if (daysSinceLastVisit >= 1 && handoffCount > 0) {
+    return {
+      tone: "medium",
+      text: "Welcome back. Sign in to keep tomorrow-you safe across devices.",
+    };
+  }
+  if (handoffCount >= 3) {
+    return {
+      tone: "medium",
+      text: `You've passed ${handoffCount} batons. Want them to follow you between devices?`,
+    };
+  }
+  if (handoffCount === 0) {
+    return null; // nothing to lose yet — don't push
+  }
+  return {
+    tone: "low",
+    text: "Your handoffs live in this browser. Sign in to back them up.",
+  };
+}
 
 export default function Dashboard() {
-  const navigate = useNavigate()
-  const { user } = useAuth()
-  const [handoffs, setHandoffs] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [score, setScore] = useState(0)
-  const [history, setHistory] = useState([false, false, false, false, false, false, false])
-  const [oneThing, setOneThing] = useState(null)
-  const [dayCount, setDayCount] = useState(0)
-  const [runTour, setRunTour] = useState(false)
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const isGuest = !user;
+
+  const [loading, setLoading] = useState(true);
+  const [score, setScore] = useState(0);
+  const [history, setHistory] = useState([false, false, false, false, false, false, false]);
+  const [oneThing, setOneThing] = useState(null);
+  const [dayCount, setDayCount] = useState(0);
+  const [runTour, setRunTour] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState(null);
+
+  // Track "last visit" so we can show a returning-user prompt
+  const [daysSinceLastVisit, setDaysSinceLastVisit] = useState(0);
+  useEffect(() => {
+    const prev = localStorage.getItem(LAST_VISIT_KEY);
+    if (prev) {
+      const diff = Math.floor(
+        (Date.now() - new Date(prev).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      setDaysSinceLastVisit(diff);
+    }
+    localStorage.setItem(LAST_VISIT_KEY, new Date().toISOString());
+  }, []);
 
   useEffect(() => {
+    if (authLoading) return;
+
     async function fetchData() {
       try {
-        const data = await getAllHandoffs(user.uid)
-        setHandoffs(data)
+        const data = await getAllHandoffs();
 
-        const signupDate = new Date(user.metadata.creationTime)
-        const today = new Date()
+        // Baseline date for "days of carrying":
+        //   - authenticated: account creation
+        //   - guest: earliest handoff (or today, if none yet)
+        const baselineDate = user
+          ? new Date(user.metadata.creationTime)
+          : data.length
+          ? new Date(data[data.length - 1].relay_date)
+          : new Date();
+
         const totalDays = Math.max(
           1,
-          Math.floor((today - signupDate) / (1000 * 60 * 60 * 24)) + 1
-        )
+          Math.floor((Date.now() - baselineDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        );
 
         const uniqueHandoffDays = new Set(
-          data.map(h => h.relay_date?.slice(0, 10))
-        ).size
+          data.map((h) => h.relay_date?.slice(0, 10))
+        ).size;
 
-        const relayScore = Math.round((uniqueHandoffDays / totalDays) * 100)
-        setScore(relayScore)
-        setDayCount(uniqueHandoffDays)
+        const relayScore = Math.round((uniqueHandoffDays / totalDays) * 100);
+        setScore(relayScore);
+        setDayCount(uniqueHandoffDays);
 
         const last7 = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date()
-          d.setDate(d.getDate() - i)
-          return d.toLocaleDateString("en-CA")
-        }).reverse()
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          return d.toLocaleDateString("en-CA");
+        }).reverse();
 
-        const history7 = last7.map(date =>
-          data.some(h => h.relay_date?.slice(0, 10) === date)
-        )
-        setHistory(history7)
+        const history7 = last7.map((date) =>
+          data.some((h) => h.relay_date?.slice(0, 10) === date)
+        );
+        setHistory(history7);
 
-        const latest = data[0]
-        if (latest?.one_thing) setOneThing(latest.one_thing)
+        const latest = data[0];
+        if (latest?.one_thing) setOneThing(latest.one_thing);
+
+        // Decide what to show (if anything) for the upgrade prompt
+        setUpgradeMsg(
+          chooseUpgradeMessage({
+            isGuest,
+            handoffCount: data.length,
+            daysSinceLastVisit,
+          })
+        );
       } catch (err) {
-        console.error(err)
+        console.error(err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    if (user) fetchData()
-  }, [user])
+    fetchData();
+  }, [authLoading, user, isGuest, daysSinceLastVisit]);
 
   useEffect(() => {
-  if (!loading && !localStorage.getItem(`tourDone_${user.uid}`)) {
-    setTimeout(() => setRunTour(true), 500)
-  }
-}, [loading])
+    if (loading) return;
+    const tourKey = `tourDone_${user?.uid || "guest"}`;
+    if (!localStorage.getItem(tourKey)) {
+      setTimeout(() => setRunTour(true), 500);
+    }
+  }, [loading, user]);
 
-  if (loading) return (
-    <PageShell>
-      <div className="d-flex justify-content-center mt-5">
-        <Spinner animation="border" size="sm" />
-      </div>
-    </PageShell>
-  )
+  const dismissUpgrade = () => {
+    localStorage.setItem(PROMPT_DISMISSED_KEY, String(Date.now()));
+    setUpgradeMsg(null);
+  };
+
+  if (loading) {
+    return (
+      <PageShell>
+        <div className="d-flex justify-content-center mt-5">
+          <Spinner animation="border" size="sm" />
+        </div>
+      </PageShell>
+    );
+  }
 
   return (
     <>
-      <AppTour run={runTour} onFinish={() => {
-        localStorage.setItem(`tourDone_${user.uid}`, "true")
-        setRunTour(false)
-      }} />
+      <AppTour
+        run={runTour}
+        onFinish={() => {
+          const tourKey = `tourDone_${user?.uid || "guest"}`;
+          localStorage.setItem(tourKey, "true");
+          setRunTour(false);
+        }}
+      />
       <PageShell>
         <div className="d-flex justify-content-between align-items-center mb-4">
-          <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: "0.04em" }}>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 500,
+              letterSpacing: "0.04em",
+            }}
+          >
             Relay<span className="text-amber">.</span>
           </div>
           <span className="day-badge">
             {dayCount} {dayCount === 1 ? "day" : "days"} of carrying
           </span>
         </div>
+
+        {upgradeMsg && (
+          <div
+            className="mb-3 p-3"
+            style={{
+              background:
+                upgradeMsg.tone === "high" ? "#F5DBA5" : "#FAEEDA",
+              borderRadius: 12,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <p
+              className="mb-0"
+              style={{
+                fontSize: 12,
+                color: "#633806",
+                lineHeight: 1.5,
+                flex: 1,
+              }}
+            >
+              {upgradeMsg.text}
+            </p>
+            <div className="d-flex flex-column gap-1 flex-shrink-0">
+              <Button
+                size="sm"
+                className="btn-amber border-0"
+                onClick={() => navigate("/login")}
+                style={{ fontSize: 11, whiteSpace: "nowrap" }}
+              >
+                Save relay →
+              </Button>
+              <Button
+                size="sm"
+                variant="link"
+                onClick={dismissUpgrade}
+                style={{
+                  fontSize: 10,
+                  color: "#9a7548",
+                  textDecoration: "none",
+                  padding: 0,
+                }}
+              >
+                Not now
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div id="relay-score">
           <RelayScore score={score} history={history} />
@@ -100,8 +242,13 @@ export default function Dashboard() {
         {oneThing ? (
           <Card id="one-thing" className="one-thing-card border-0 mb-3">
             <Card.Body className="p-3">
-              <p className="screen-label text-amber mb-2">Your one thing today</p>
-              <p className="font-serif fst-italic mb-0" style={{ fontSize: 14, lineHeight: 1.6 }}>
+              <p className="screen-label text-amber mb-2">
+                Your one thing today
+              </p>
+              <p
+                className="font-serif fst-italic mb-0"
+                style={{ fontSize: 14, lineHeight: 1.6 }}
+              >
                 "{oneThing}"
               </p>
             </Card.Body>
@@ -109,8 +256,17 @@ export default function Dashboard() {
         ) : (
           <Card id="one-thing" className="one-thing-card border-0 mb-3">
             <Card.Body className="p-3">
-              <p className="screen-label text-amber mb-2">Your one thing today</p>
-              <p className="mb-0" style={{ fontSize: 13, color: "#9a9a94", fontStyle: "italic" }}>
+              <p className="screen-label text-amber mb-2">
+                Your one thing today
+              </p>
+              <p
+                className="mb-0"
+                style={{
+                  fontSize: 13,
+                  color: "#9a9a94",
+                  fontStyle: "italic",
+                }}
+              >
                 Yesterday-you didn't leave a one thing. Set one tonight.
               </p>
             </Card.Body>
@@ -125,11 +281,31 @@ export default function Dashboard() {
           <Card.Body className="p-3 text-center">
             <p
               className="font-serif mb-0"
-              style={{ fontSize: 14, lineHeight: 1.7, color: "#6f6f69", fontStyle: "italic" }}
+              style={{
+                fontSize: 14,
+                lineHeight: 1.7,
+                color: "#6f6f69",
+                fontStyle: "italic",
+              }}
             >
-              You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not win</span> today.<br />
-              You will <span style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}>not see</span> the result.<br />
-              Play well anyway.<br />
+              You will{" "}
+              <span
+                style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}
+              >
+                not win
+              </span>{" "}
+              today.
+              <br />
+              You will{" "}
+              <span
+                style={{ color: "#000", fontStyle: "normal", fontWeight: 500 }}
+              >
+                not see
+              </span>{" "}
+              the result.
+              <br />
+              Play well anyway.
+              <br />
               <span>The next version of you inherits this.</span>
             </p>
           </Card.Body>
@@ -144,5 +320,5 @@ export default function Dashboard() {
         </Button>
       </PageShell>
     </>
-  )
+  );
 }

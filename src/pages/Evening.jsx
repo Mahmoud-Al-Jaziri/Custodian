@@ -4,13 +4,13 @@ import PageShell from "../components/Pageshell.jsx";
 import { createHandoff, getTodayHandoff } from "../services/handoffs.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { getTomorrowWeather } from "../services/weather.js";
-import { uploadHandoffAttachment } from "../services/storage.js"
+import { useNavigate } from "react-router-dom";
 
 const PROMPTS = ["what I finished", "what's left", "how I feel", "a small win"];
 const MAX_CHARS = 280;
 
 export default function Evening() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [note, setNote] = useState("");
   const [oneThing, setOneThing] = useState("");
@@ -23,21 +23,23 @@ export default function Evening() {
   const [alreadyPassed, setAlreadyPassed] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  const [weather,setWeather] = useState(null)
-
+  const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [locationStatus, setLocationStatus] = useState("idle");
 
-  const [file, setFile] = useState(null)
-  const [uploading, setUploading] = useState(false)
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  const navigate = useNavigate();
+  const isGuest = !user;
 
   // CHECK IF USER ALREADY PASSED TODAY
   useEffect(() => {
+    if (authLoading) return;
+
     async function checkToday() {
       try {
-        const data = await getTodayHandoff(user.uid);
-
-        // convert object/null → boolean
+        const data = await getTodayHandoff();
         setAlreadyPassed(Boolean(data));
       } catch (err) {
         console.error(err);
@@ -45,11 +47,10 @@ export default function Evening() {
         setChecking(false);
       }
     }
+    checkToday();
+  }, [authLoading, user]);
 
-    if (user) checkToday();
-  }, [user]);
-
-  //get tomorrow forcast based on user geo location
+  // Tomorrow's forecast (no auth needed — it's just an open weather call)
   const requestLocation = async () => {
     setWeatherLoading(true);
 
@@ -68,10 +69,8 @@ export default function Evening() {
         async (position) => {
           try {
             setLocationStatus("granted");
-
             const { latitude, longitude } = position.coords;
             const data = await getTomorrowWeather(latitude, longitude);
-
             setWeather(data);
           } catch (err) {
             console.error(err);
@@ -87,11 +86,8 @@ export default function Evening() {
       );
 
       permission.onchange = () => {
-        if (permission.state === "granted") {
-          requestLocation();
-        }
+        if (permission.state === "granted") requestLocation();
       };
-
     } catch (err) {
       console.error(err);
       setWeatherLoading(false);
@@ -101,8 +97,8 @@ export default function Evening() {
   useEffect(() => {
     requestLocation();
   }, []);
-  
-  // SUBMIT HANDOFF
+
+  // SUBMIT HANDOFF — service decides local vs cloud
   const handleSubmit = async () => {
     if (!note.trim()) return;
 
@@ -111,19 +107,9 @@ export default function Evening() {
     setSaved(false);
 
     try {
-      const relay_date = new Date().toLocaleDateString("en-CA");
-      let image_url = null;
-      
-      if(file){
-        setUploading(true)
-        image_url = await uploadHandoffAttachment(user.uid, relay_date, file)
-        setUploading(false)
-      }
-
-      await createHandoff(user.uid, note, oneThing, image_url);
-
-      setSaved(true);// lock UI immediately
-       
+      if (file && !isGuest) setUploading(true);
+      await createHandoff(note, oneThing, file);
+      setSaved(true);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -132,7 +118,6 @@ export default function Evening() {
     }
   };
 
-  // UI
   return (
     <PageShell>
       <p className="screen-label mb-3">Evening · Handoff</p>
@@ -146,7 +131,7 @@ export default function Evening() {
 
       {weatherLoading ? (
         <p style={{ fontSize: 12, color: "#9a9a94" }}>
-          Getting tomorrow’s weather...
+          Getting tomorrow's weather...
         </p>
       ) : weather ? (
         <div
@@ -156,14 +141,22 @@ export default function Evening() {
             background: "#f6f4ef",
             borderRadius: 12,
             fontSize: 12,
-            color: "#5a5a56"
+            color: "#5a5a56",
           }}
         >
-          <span style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9a9a94" }}>
+          <span
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#9a9a94",
+            }}
+          >
             Tomorrow-you wakes up to
           </span>
           <p className="mb-0 mt-1" style={{ fontSize: 14, color: "#1a1a18" }}>
-            {weather.temp}°C · {weather.description} · feels like {weather.feels_like}°C · {weather.humidity}% humidity
+            {weather.temp}°C · {weather.description} · feels like{" "}
+            {weather.feels_like}°C · {weather.humidity}% humidity
           </p>
         </div>
       ) : locationStatus === "denied" ? (
@@ -173,30 +166,30 @@ export default function Evening() {
             background: "#f6f4ef",
             borderRadius: 12,
             fontSize: 12,
-            color: "#5a5a56"
+            color: "#5a5a56",
           }}
         >
           <p
             className="mb-2"
             style={{ fontSize: 13, display: "flex", alignItems: "center" }}
           >
-            
             Location is blocked in your browser.
           </p>
           <p style={{ fontSize: 12, color: "#9a9a94" }}>
-              Click the{" "}
-              <span
-                className="material-symbols-outlined"
-                style={{
-                  fontSize: 16,
-                  verticalAlign: "middle",
-                  margin: "0 4px",
-                  color: "#9a9a94"
-                }}
-              >
-                location_off
-              </span>
-               icon in the address bar → allow location → refresh the page so tomorrow-you is ready for the weather 🌦️.
+            Click the{" "}
+            <span
+              className="material-symbols-outlined"
+              style={{
+                fontSize: 16,
+                verticalAlign: "middle",
+                margin: "0 4px",
+                color: "#9a9a94",
+              }}
+            >
+              location_off
+            </span>
+            icon in the address bar → allow location → refresh the page so
+            tomorrow-you is ready for the weather 🌦️.
           </p>
         </div>
       ) : (
@@ -206,7 +199,7 @@ export default function Evening() {
             background: "#f6f4ef",
             borderRadius: 12,
             fontSize: 12,
-            color: "#5a5a56"
+            color: "#5a5a56",
           }}
         >
           <p className="mb-2" style={{ fontSize: 13 }}>
@@ -244,9 +237,7 @@ export default function Evening() {
           <span
             key={p}
             className="prompt-chip"
-            onClick={() =>
-              setNote((prev) => prev + (prev ? " " : "") + p)
-            }
+            onClick={() => setNote((prev) => prev + (prev ? " " : "") + p)}
           >
             {p}
           </span>
@@ -268,8 +259,7 @@ export default function Evening() {
         onChange={(e) => setOneThing(e.target.value)}
       />
 
-      {/*FILE UPLOAD*/}
-
+      {/* FILE UPLOAD */}
       <div className="mb-3">
         <p
           style={{
@@ -277,7 +267,7 @@ export default function Evening() {
             letterSpacing: "0.1em",
             textTransform: "uppercase",
             color: "#9a9a94",
-            marginBottom: 8
+            marginBottom: 8,
           }}
         >
           Attach something for tomorrow-you
@@ -290,7 +280,7 @@ export default function Evening() {
             background: "#f6f4ef",
             border: "none",
             borderRadius: 10,
-            fontSize: 13
+            fontSize: 13,
           }}
           onChange={(e) => setFile(e.target.files[0] || null)}
         />
@@ -302,29 +292,62 @@ export default function Evening() {
         )}
       </div>
 
-      {/*STATE UI (IMPORTANT PART)*/}
-
+      {/* STATE UI */}
       {saved ? (
-        <Alert variant="success" style={{ fontSize: 12 }}>
-            Baton passed. Tomorrow-you is ready.
-        </Alert>
-        ) : checking ? (
-        <p style={{ fontSize: 12, color: "#9a9a94" }}>
-            Checking today's baton...
-        </p>
-        ) : alreadyPassed ? (
-        <Alert variant="secondary" style={{ fontSize: 12 }}>
-            ⚠️ You already passed today’s baton.
-            <br />
-            Come back tomorrow to continue the relay.
-        </Alert>
-        ) : (
         <>
-            {error && (
+          <Alert variant="success" style={{ fontSize: 12 }}>
+            Baton passed. Tomorrow-you is ready.
+          </Alert>
+
+          {isGuest && (
+            <div
+              className="p-3 mb-2"
+              style={{
+                background: "#FAEEDA",
+                borderRadius: 12,
+                border: "1px solid rgba(186,117,23,0.2)",
+              }}
+            >
+              <p
+                className="font-serif fst-italic mb-2"
+                style={{ fontSize: 13, color: "#633806", lineHeight: 1.6 }}
+              >
+                "This handoff lives in this browser. Sign in once and
+                tomorrow-you can find it on any device."
+              </p>
+              <Button
+                className="btn-amber w-100 border-0 py-2"
+                style={{ fontSize: 12 }}
+                onClick={() => navigate("/login")}
+              >
+                Save my relay →
+              </Button>
+              <p
+                className="text-center mb-0 mt-2"
+                style={{ fontSize: 11, color: "#9a9a94" }}
+              >
+                No password. Just an email link.
+              </p>
+            </div>
+          )}
+        </>
+      ) : checking ? (
+        <p style={{ fontSize: 12, color: "#9a9a94" }}>
+          Checking today's baton...
+        </p>
+      ) : alreadyPassed ? (
+        <Alert variant="secondary" style={{ fontSize: 12 }}>
+          ⚠️ You already passed today's baton.
+          <br />
+          Come back tomorrow to continue the relay.
+        </Alert>
+      ) : (
+        <>
+          {error && (
             <Alert variant="warning" style={{ fontSize: 12 }}>
-                {error}
+              {error}
             </Alert>
-            )}
+          )}
 
           <Stack gap={2}>
             <Button
@@ -342,7 +365,11 @@ export default function Evening() {
                   : {}
               }
             >
-              {uploading ? "Uploading file..." : saving ? "Passing..." : "SEAL AND PASS TO TOMORROW →"}
+              {uploading
+                ? "Uploading file..."
+                : saving
+                ? "Passing..."
+                : "SEAL AND PASS TO TOMORROW →"}
             </Button>
           </Stack>
         </>
