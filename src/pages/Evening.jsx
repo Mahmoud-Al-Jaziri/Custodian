@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button, Form, Stack, Alert } from "react-bootstrap";
 import PageShell from "../components/Pageshell.jsx";
 import { createHandoff, getTodayHandoff } from "../services/handoffs.js";
@@ -7,7 +7,16 @@ import { getTomorrowWeather } from "../services/weather.js";
 import { useNavigate } from "react-router-dom";
 
 const PROMPTS = ["what I finished", "what's left", "how I feel", "a small win"];
-const MAX_CHARS = 280;
+// High safety backstop only — a real handoff never comes close. Protects the
+// migration payload / storage from runaway pastes, not the user from writing.
+const MAX_CHARS = 2000;
+// The counter stays hidden until you've written a lot, so it reads as gentle
+// awareness ("you're writing a lot tonight") rather than a limit.
+const SOFT_COUNTER_AT = 250;
+// Plain-text list continuation: pressing return on a line that starts with one
+// of these markers auto-starts the next line with the same marker. The markers
+// are just characters — nothing rich-text, so storage/rendering stay plain.
+const LIST_LINE = /^(\s*)([-•*])\s+(.*)$/;
 
 export default function Evening() {
   const { user, loading: authLoading } = useAuth();
@@ -32,6 +41,65 @@ export default function Evening() {
 
   const navigate = useNavigate();
   const isGuest = !user;
+
+  // --- writing experience: auto-grow + plain-text list continuation ------
+  const textareaRef = useRef(null);
+  // When we rewrite the note programmatically (list continuation), we stash
+  // where the caret should land and restore it after React re-renders.
+  const pendingCaret = useRef(null);
+
+  const autoGrow = (el) => {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  // Grow on mount (covers a restored draft) and whenever the note changes,
+  // and apply any pending caret position from list continuation.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    autoGrow(el);
+    if (pendingCaret.current != null) {
+      el.selectionStart = pendingCaret.current;
+      el.selectionEnd = pendingCaret.current;
+      pendingCaret.current = null;
+    }
+  }, [note]);
+
+  const handleNoteKeyDown = (e) => {
+    // Only the plain return key, with a collapsed cursor (no selection).
+    if (e.key !== "Enter" || e.shiftKey) return;
+    const el = e.target;
+    if (el.selectionStart !== el.selectionEnd) return;
+
+    const value = el.value;
+    const caret = el.selectionStart;
+
+    const lineStart = value.lastIndexOf("\n", caret - 1) + 1;
+    const lineEndRaw = value.indexOf("\n", caret);
+    const lineEnd = lineEndRaw === -1 ? value.length : lineEndRaw;
+    const currentLine = value.slice(lineStart, lineEnd);
+
+    const match = currentLine.match(LIST_LINE);
+    if (!match) return; // not a list line — let return behave normally
+
+    const [, indent, marker, content] = match;
+    e.preventDefault();
+
+    if (content.trim() === "") {
+      // Return on an empty bullet exits the list: clear the marker, stay put.
+      const next = value.slice(0, lineStart) + value.slice(lineEnd);
+      pendingCaret.current = lineStart;
+      setNote(next);
+    } else {
+      // Continue the list: new line with the same indent + marker.
+      const insertion = `\n${indent}${marker} `;
+      const next = value.slice(0, caret) + insertion + value.slice(caret);
+      pendingCaret.current = caret + insertion.length;
+      setNote(next);
+    }
+  };
 
   // CHECK IF USER ALREADY PASSED TODAY
   useEffect(() => {
@@ -219,16 +287,37 @@ export default function Evening() {
       {/* NOTE INPUT */}
       <Form.Control
         as="textarea"
+        ref={textareaRef}
         rows={5}
         className="handoff-textarea p-3 mb-1"
         placeholder="I left you..."
         maxLength={MAX_CHARS}
         value={note}
-        onChange={(e) => setNote(e.target.value)}
+        onChange={(e) => {
+          setNote(e.target.value);
+          autoGrow(e.target);
+        }}
+        onKeyDown={handleNoteKeyDown}
+        onFocus={(e) => {
+          // Keep the field visible once the mobile keyboard animates in.
+          const el = e.target;
+          setTimeout(
+            () => el.scrollIntoView({ block: "center", behavior: "smooth" }),
+            300
+          );
+        }}
+        style={{
+          fontSize: 16, // < 16px makes iOS Safari zoom on focus
+          resize: "none", // grows automatically; no manual drag handle
+          overflow: "hidden", // hidden because the element grows instead of scrolling
+        }}
       />
 
-      <p className="text-end mb-3" style={{ fontSize: 10, color: "#9a9a94" }}>
-        {note.length} / {MAX_CHARS}
+      <p
+        className="text-end mb-3"
+        style={{ fontSize: 10, color: "#9a9a94", minHeight: 14 }}
+      >
+        {note.length >= SOFT_COUNTER_AT ? `${note.length} characters` : ""}
       </p>
 
       {/* PROMPTS */}
@@ -244,20 +333,30 @@ export default function Evening() {
         ))}
       </div>
 
-      {/* ONE THING INPUT */}
-      <Form.Control
-        type="text"
-        placeholder="One thing forward for tomorrow-you (optional)"
-        className="mb-3"
-        style={{
-          background: "#f6f4ef",
-          border: "none",
-          borderRadius: 10,
-          fontSize: 13,
-        }}
-        value={oneThing}
-        onChange={(e) => setOneThing(e.target.value)}
-      />
+      {/* THE ONE THING — the single instruction tomorrow-you acts on */}
+      <div className="mb-3">
+        <p className="screen-label text-amber mb-1">The one thing</p>
+        <p
+          className="font-serif fst-italic mb-2"
+          style={{ fontSize: 14, color: "#5a5a56", lineHeight: 1.5 }}
+        >
+          If tomorrow-you does one thing, what is it?
+        </p>
+        <Form.Control
+          type="text"
+          placeholder="Start with…"
+          style={{
+            background: "#FAEEDA",
+            border: "1px solid rgba(186,117,23,0.25)",
+            borderRadius: 10,
+            fontSize: 16,
+            padding: "14px 16px",
+            color: "#1a1a18",
+          }}
+          value={oneThing}
+          onChange={(e) => setOneThing(e.target.value)}
+        />
+      </div>
 
       {/* FILE UPLOAD */}
       <div className="mb-3">
