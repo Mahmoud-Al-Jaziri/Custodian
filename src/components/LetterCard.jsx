@@ -18,9 +18,13 @@ export default function LetterCard({
         {note && (
           <p
             className="font-serif fst-italic mb-0"
-            style={{ fontSize: 14, lineHeight: 1.7 }}
+            style={{
+              fontSize: 14,
+              lineHeight: 1.7,
+              whiteSpace: "pre-wrap", // honor the line breaks the user typed
+            }}
           >
-            "{note}"
+            {"\u201C" + note + "\u201D"}
           </p>
         )}
         
