@@ -3,8 +3,8 @@ import { useState, useEffect } from "react"
 const STEPS = [
   {
     target: "relay-score",
-    title: "Your relay score",
-    content: "This is not a streak. It's the percentage of days you've passed the baton. Missing one day doesn't reset everything — it just moves the number slightly.",
+    title: "Your night streak",
+    content: "Nights in a row you've passed the baton. Tonight's not done until evening, so it never breaks early — and you get a couple of rest nights so one slip won't reset you. Your best run is always kept.",
   },
   {
     target: "one-thing",

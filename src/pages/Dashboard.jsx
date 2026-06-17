@@ -4,6 +4,7 @@ import { Button, Card, Spinner } from "react-bootstrap";
 import PageShell from "../components/Pageshell.jsx";
 import RelayScore from "../components/Relayscore.jsx";
 import { getAllHandoffs } from "../services/handoffs.js";
+import { computeRelayStreak } from "../utils/relayStreak.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import PomodoroTimer from "../components/PomodoroTimer.jsx";
 import AppTour from "../components/AppTour.jsx";
@@ -55,8 +56,8 @@ export default function Dashboard() {
   const isGuest = !user;
 
   const [loading, setLoading] = useState(true);
-  const [score, setScore] = useState(0);
-  const [history, setHistory] = useState([false, false, false, false, false, false, false]);
+  const [streak, setStreak] = useState(null);
+  const [handoffs, setHandoffs] = useState([]);
   const [oneThing, setOneThing] = useState(null);
   const [dayCount, setDayCount] = useState(0);
   const [runTour, setRunTour] = useState(false);
@@ -81,39 +82,13 @@ export default function Dashboard() {
     async function fetchData() {
       try {
         const data = await getAllHandoffs();
+        setHandoffs(data);
 
-        // Baseline date for "days of carrying":
-        //   - authenticated: account creation
-        //   - guest: earliest handoff (or today, if none yet)
-        const baselineDate = user
-          ? new Date(user.metadata.creationTime)
-          : data.length
-          ? new Date(data[data.length - 1].relay_date)
-          : new Date();
-
-        const totalDays = Math.max(
-          1,
-          Math.floor((Date.now() - baselineDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
-        );
-
-        const uniqueHandoffDays = new Set(
-          data.map((h) => h.relay_date?.slice(0, 10))
-        ).size;
-
-        const relayScore = Math.round((uniqueHandoffDays / totalDays) * 100);
-        setScore(relayScore);
-        setDayCount(uniqueHandoffDays);
-
-        const last7 = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          return d.toLocaleDateString("en-CA");
-        }).reverse();
-
-        const history7 = last7.map((date) =>
-          data.some((h) => h.relay_date?.slice(0, 10) === date)
-        );
-        setHistory(history7);
+        // Forgiving night-streak — replaces the old lifetime percentage, which
+        // punished early misses forever and could exceed 100% from a unit bug.
+        const streak = computeRelayStreak(data);
+        setStreak(streak);
+        setDayCount(streak.totalDays);
 
         const latest = data[0];
         if (latest?.one_thing) setOneThing(latest.one_thing);
@@ -236,7 +211,7 @@ export default function Dashboard() {
         )}
 
         <div id="relay-score">
-          <RelayScore score={score} history={history} />
+          {streak && <RelayScore {...streak} handoffs={handoffs} />}
         </div>
 
         {oneThing ? (
