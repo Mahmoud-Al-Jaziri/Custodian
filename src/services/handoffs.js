@@ -3,6 +3,10 @@
 // Single interface for handoffs. Dispatches to local IndexedDB when the user
 // is a guest, and to the cloud API when authenticated. Components never need
 // to know which mode they're in.
+//
+// SECURITY NOTE: the API now derives the user's identity from the verified
+// Firebase ID token on every request. We no longer send user_id in the URL
+// or body — the server wouldn't trust it anyway.
 
 import { auth } from "../firebase";
 import {
@@ -54,7 +58,6 @@ export async function createHandoff(note, oneThing, attachment = null) {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify({
-      user_id: auth.currentUser.uid,
       note,
       one_thing: oneThing,
       relay_date,
@@ -69,10 +72,9 @@ export async function createHandoff(note, oneThing, attachment = null) {
 export async function getTodayHandoff() {
   if (isGuest()) return getLocalHandoffByDate(today());
 
-  const res = await fetch(
-    `${API_URL}/handoffs/${auth.currentUser.uid}/today?today=${today()}`,
-    { headers: await authHeaders() }
-  );
+  const res = await fetch(`${API_URL}/handoffs/today?today=${today()}`, {
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to fetch today's handoff");
   return res.json();
 }
@@ -80,10 +82,9 @@ export async function getTodayHandoff() {
 export async function getLatestHandoff() {
   if (isGuest()) return getLatestLocalHandoff();
 
-  const res = await fetch(
-    `${API_URL}/handoffs/${auth.currentUser.uid}/latest`,
-    { headers: await authHeaders() }
-  );
+  const res = await fetch(`${API_URL}/handoffs/latest`, {
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to fetch handoff");
   return res.json();
 }
@@ -91,7 +92,7 @@ export async function getLatestHandoff() {
 export async function getAllHandoffs() {
   if (isGuest()) return getAllLocalHandoffs();
 
-  const res = await fetch(`${API_URL}/handoffs/${auth.currentUser.uid}`, {
+  const res = await fetch(`${API_URL}/handoffs`, {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to fetch handoffs");

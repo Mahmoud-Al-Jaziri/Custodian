@@ -3,49 +3,62 @@ import pool from "../db.js";
 
 const handoffsRouter = Router();
 
-// CREATE — save tonight's handoff
+// A handoff id is a UUID. Anything not shaped like one can't match a real
+// row, so we return 404 up front instead of letting Postgres throw
+// "invalid input syntax for type uuid" (which would surface as a 500).
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v) => typeof v === "string" && UUID_RE.test(v);
+
+// SECURITY MODEL
+// --------------
+// Every route in this file is mounted behind verifyToken (see index.js), which
+// sets req.user from the verified Firebase ID token. The user's identity is
+// ALWAYS taken from req.user.uid — never from the URL, never from the body.
+// A client can therefore only ever touch its own rows, no matter what it sends.
+
+// CREATE / UPSERT — save tonight's handoff for the authenticated user.
 handoffsRouter.post("/", async (req, res) => {
+  const userId = req.user.uid;
+  const { note, one_thing, relay_date, image_url } = req.body;
+
+  const client = await pool.connect();
   try {
-    const { user_id, note, one_thing, relay_date, image_url } = req.body;
+    await client.query("BEGIN");
 
-    const query = `
-      INSERT INTO handoffs (user_id, note, one_thing, relay_date, image_url)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (user_id, relay_date)
-      DO UPDATE SET note = $2, one_thing = $3, image_url = $5
-      RETURNING *
-    `;
+    // Make sure the FK target exists. Normally /bulk created it at first
+    // sign-in, but this keeps POST self-sufficient (idempotent upsert).
+    await client.query(
+      `INSERT INTO users (id, display_name)
+       VALUES ($1, $2)
+       ON CONFLICT (id) DO NOTHING`,
+      [userId, req.user.email || null]
+    );
 
-    const result = await pool.query(query, [
-      user_id,
-      note,
-      one_thing,
-      relay_date,
-      image_url,
-    ]);
+    const result = await client.query(
+      `INSERT INTO handoffs (user_id, note, one_thing, relay_date, image_url)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id, relay_date)
+       DO UPDATE SET note = $2, one_thing = $3, image_url = $5
+       RETURNING *`,
+      [userId, note, one_thing, relay_date, image_url]
+    );
 
+    await client.query("COMMIT");
     res.status(201).json(result.rows[0]);
   } catch (err) {
+    await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
 // BULK CREATE — migrate guest handoffs into the cloud after first sign-in.
 // Also upserts the users row so the FK constraint is satisfied in the same txn.
-//
-// IMPORTANT: this route must be mounted BEFORE the parameterised GET routes
-// (`/:user_id`, `/:user_id/today`, etc) — Express matches in order and
-// `/bulk` would otherwise be captured by `/:user_id`. The order of route
-// declarations below already handles this correctly.
 handoffsRouter.post("/bulk", async (req, res) => {
   const { handoffs = [], display_name } = req.body;
-  // verifyToken middleware (in index.js) sets req.user.uid from the verified
-  // Firebase ID token — never trust a uid sent in the body for this endpoint.
-  const userId = req.user?.uid;
-
-  if (!userId) {
-    return res.status(401).json({ error: "Not authenticated" });
-  }
+  const userId = req.user.uid;
 
   const client = await pool.connect();
   try {
@@ -92,81 +105,84 @@ handoffsRouter.post("/bulk", async (req, res) => {
   }
 });
 
-// READ ALL — get all handoffs for a user
-handoffsRouter.get("/:user_id", async (req, res) => {
+// READ ONE — today's handoff for the authenticated user.
+// NOTE: static paths (/today, /latest) are declared before any param routes
+// would be — Express matches in declaration order.
+handoffsRouter.get("/today", async (req, res) => {
   try {
-    const { user_id } = req.params;
+    const { today } = req.query;
 
-    const query = `
-      SELECT *
-      FROM handoffs
-      WHERE user_id = $1
-      ORDER BY relay_date DESC
-    `;
+    const result = await pool.query(
+      `SELECT *
+       FROM handoffs
+       WHERE user_id = $1
+       AND relay_date = $2::date
+       LIMIT 1`,
+      [req.user.uid, today]
+    );
+    res.status(200).json(result.rows[0] || null);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    const result = await pool.query(query, [user_id]);
+// READ ONE — latest handoff for the authenticated user.
+handoffsRouter.get("/latest", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT *
+       FROM handoffs
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [req.user.uid]
+    );
+    res.status(200).json(result.rows[0] || null);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// READ ALL — every handoff belonging to the authenticated user.
+handoffsRouter.get("/", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT *
+       FROM handoffs
+       WHERE user_id = $1
+       ORDER BY relay_date DESC`,
+      [req.user.uid]
+    );
     res.status(200).json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// READ ONE - get today's handoff specifically
-handoffsRouter.get("/:user_id/today", async (req, res) => {
-  try {
-    const { user_id } = req.params;
-    const { today } = req.query;
-
-    const query = `
-      SELECT *
-      FROM handoffs
-      WHERE user_id = $1
-      AND relay_date = $2::date
-      LIMIT 1
-    `;
-
-    const result = await pool.query(query, [user_id, today]);
-    res.status(200).json(result.rows[0] || null);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// READ ONE — get latest handoff specifically
-handoffsRouter.get("/:user_id/latest", async (req, res) => {
-  try {
-    const { user_id } = req.params;
-
-    const query = `
-      SELECT *
-      FROM handoffs
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-      LIMIT 1
-    `;
-
-    const result = await pool.query(query, [user_id]);
-    res.status(200).json(result.rows[0] || null);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// UPDATE — edit today's handoff
+// UPDATE — edit today's handoff. The `AND user_id = $4` clause is the
+// ownership check: a row that exists but belongs to someone else returns
+// 0 rows, which we surface as 404 (don't reveal whether the id exists).
 handoffsRouter.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { note, one_thing, relay_date } = req.body;
 
-    const query = `
-      UPDATE handoffs
-      SET note = $1, one_thing = $2
-      WHERE id = $3
-      AND relay_date = $4
-      RETURNING *
-    `;
+    // Malformed id can't match a real row — 404 before touching the DB.
+    if (!isUuid(id)) {
+      return res
+        .status(404)
+        .json({ error: "Handoff not found or not editable" });
+    }
 
-    const result = await pool.query(query, [note, one_thing, id, relay_date]);
+    const result = await pool.query(
+      `UPDATE handoffs
+       SET note = $1, one_thing = $2
+       WHERE id = $3
+       AND user_id = $4
+       AND relay_date = $5
+       RETURNING *`,
+      [note, one_thing, id, req.user.uid, relay_date]
+    );
 
     if (result.rows.length === 0) {
       return res
@@ -180,18 +196,23 @@ handoffsRouter.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE — remove a handoff
+// DELETE — remove a handoff, only if it belongs to the authenticated user.
 handoffsRouter.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const query = `
-      DELETE FROM handoffs
-      WHERE id = $1
-      RETURNING *
-    `;
+    // Malformed id can't match a real row — 404 before touching the DB.
+    if (!isUuid(id)) {
+      return res.status(404).json({ error: "Handoff not found" });
+    }
 
-    const result = await pool.query(query, [id]);
+    const result = await pool.query(
+      `DELETE FROM handoffs
+       WHERE id = $1
+       AND user_id = $2
+       RETURNING *`,
+      [id, req.user.uid]
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Handoff not found" });
