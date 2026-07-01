@@ -35,11 +35,17 @@ handoffsRouter.post("/", async (req, res) => {
       [userId, req.user.email || null]
     );
 
+    // On edit (the ON CONFLICT path) a missing image_url means "leave the
+    // existing attachment alone" — COALESCE keeps the stored one rather than
+    // nulling it. Sending a new url still replaces it.
     const result = await client.query(
       `INSERT INTO handoffs (user_id, note, one_thing, relay_date, image_url)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (user_id, relay_date)
-       DO UPDATE SET note = $2, one_thing = $3, image_url = $5
+       DO UPDATE SET
+         note = $2,
+         one_thing = $3,
+         image_url = COALESCE($5, handoffs.image_url)
        RETURNING *`,
       [userId, note, one_thing, relay_date, image_url]
     );
@@ -160,41 +166,12 @@ handoffsRouter.get("/", async (req, res) => {
 });
 
 // UPDATE — edit today's handoff. The `AND user_id = $4` clause is the
-// ownership check: a row that exists but belongs to someone else returns
-// 0 rows, which we surface as 404 (don't reveal whether the id exists).
-handoffsRouter.put("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { note, one_thing, relay_date } = req.body;
-
-    // Malformed id can't match a real row — 404 before touching the DB.
-    if (!isUuid(id)) {
-      return res
-        .status(404)
-        .json({ error: "Handoff not found or not editable" });
-    }
-
-    const result = await pool.query(
-      `UPDATE handoffs
-       SET note = $1, one_thing = $2
-       WHERE id = $3
-       AND user_id = $4
-       AND relay_date = $5
-       RETURNING *`,
-      [note, one_thing, id, req.user.uid, relay_date]
-    );
-
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ error: "Handoff not found or not editable" });
-    }
-
-    res.status(200).json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ownership check.
+//
+// NOTE: there is intentionally no PUT/:id route. Editing tonight's handoff
+// goes through the POST upsert above (same (user_id, relay_date) row), which
+// also handles attachments. Only today's handoff is editable by design —
+// once tomorrow-you has received a past handoff it's sealed history.
 
 // DELETE — remove a handoff, only if it belongs to the authenticated user.
 handoffsRouter.delete("/:id", async (req, res) => {

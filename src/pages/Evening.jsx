@@ -29,7 +29,12 @@ export default function Evening() {
 
   const [saving, setSaving] = useState(false);
 
-  const [alreadyPassed, setAlreadyPassed] = useState(false);
+  // Today's existing handoff, if any. Drives edit mode: when set, the form is
+  // prefilled and re-saving overwrites today's row instead of creating a new
+  // one. `wasEditing` is captured at submit time so the success copy reflects
+  // the action even after `existing` updates.
+  const [existing, setExisting] = useState(null);
+  const [wasEditing, setWasEditing] = useState(false);
   const [checking, setChecking] = useState(true);
 
   const [weather, setWeather] = useState(null);
@@ -41,6 +46,8 @@ export default function Evening() {
 
   const navigate = useNavigate();
   const isGuest = !user;
+  // Today's handoff already exists → the form edits it instead of creating one.
+  const isEditing = Boolean(existing);
 
   // --- writing experience: auto-grow + plain-text list continuation ------
   const textareaRef = useRef(null);
@@ -108,7 +115,7 @@ export default function Evening() {
     async function checkToday() {
       try {
         const data = await getTodayHandoff();
-        setAlreadyPassed(Boolean(data));
+        setExisting(data);
       } catch (err) {
         console.error(err);
       } finally {
@@ -117,6 +124,16 @@ export default function Evening() {
     }
     checkToday();
   }, [authLoading, user]);
+
+  // Prefill the form from today's existing handoff so re-opening the page
+  // shows what you wrote, ready to edit. Runs only when `existing` changes,
+  // so it never clobbers in-progress typing.
+  useEffect(() => {
+    if (existing) {
+      setNote(existing.note ?? "");
+      setOneThing(existing.one_thing ?? "");
+    }
+  }, [existing]);
 
   // Tomorrow's forecast (no auth needed — it's just an open weather call)
   const requestLocation = async () => {
@@ -173,10 +190,15 @@ export default function Evening() {
     setSaving(true);
     setError("");
     setSaved(false);
+    setWasEditing(Boolean(existing));
 
     try {
       if (file && !isGuest) setUploading(true);
-      await createHandoff(note, oneThing, file);
+      // createHandoff upserts on (user_id, relay_date), so this both creates
+      // and edits today's handoff. Keep the returned row so the form stays in
+      // edit mode if the user comes back.
+      const record = await createHandoff(note, oneThing, file);
+      setExisting(record);
       setSaved(true);
     } catch (err) {
       setError(err.message);
@@ -395,7 +417,9 @@ export default function Evening() {
       {saved ? (
         <>
           <Alert variant="success" style={{ fontSize: 12 }}>
-            Baton passed. Tomorrow-you is ready.
+            {wasEditing
+              ? "Baton updated. Tomorrow-you has the latest."
+              : "Baton passed. Tomorrow-you is ready."}
           </Alert>
 
           {isGuest && (
@@ -434,18 +458,22 @@ export default function Evening() {
         <p style={{ fontSize: 12, color: "#9a9a94" }}>
           Checking today's baton...
         </p>
-      ) : alreadyPassed ? (
-        <Alert variant="secondary" style={{ fontSize: 12 }}>
-          ⚠️ You already passed today's baton.
-          <br />
-          Come back tomorrow to continue the relay.
-        </Alert>
       ) : (
         <>
           {error && (
             <Alert variant="warning" style={{ fontSize: 12 }}>
               {error}
             </Alert>
+          )}
+
+          {isEditing && (
+            <p
+              className="mb-2"
+              style={{ fontSize: 12, color: "#9a9a94" }}
+            >
+              You already passed today's baton — you can revise it until the
+              day ends.
+            </p>
           )}
 
           <Stack gap={2}>
@@ -467,7 +495,11 @@ export default function Evening() {
               {uploading
                 ? "Uploading file..."
                 : saving
-                ? "Passing..."
+                ? isEditing
+                  ? "Updating..."
+                  : "Passing..."
+                : isEditing
+                ? "UPDATE TONIGHT'S BATON →"
                 : "SEAL AND PASS TO TOMORROW →"}
             </Button>
           </Stack>

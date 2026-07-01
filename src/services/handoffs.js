@@ -99,23 +99,10 @@ export async function getAllHandoffs() {
   return res.json();
 }
 
-// Kept for parity with the previous service surface. The Edit flow isn't
-// wired up in the UI yet, but if you add one later it'll work for both
-// guests and authenticated users without further changes.
-export async function updateHandoff(id, note, oneThing) {
-  if (isGuest()) {
-    const relay_date = id?.startsWith?.("local-") ? id.slice(6) : today();
-    return upsertLocalHandoff({ relay_date, note, one_thing: oneThing });
-  }
-
-  const res = await fetch(`${API_URL}/handoffs/${id}`, {
-    method: "PUT",
-    headers: await authHeaders(),
-    body: JSON.stringify({ note, one_thing: oneThing, relay_date: today() }),
-  });
-  if (!res.ok) throw new Error("Failed to update handoff");
-  return res.json();
-}
+// Editing tonight's handoff is just another createHandoff() call — the API
+// upserts on (user_id, relay_date) and guests upsert on the same key locally,
+// so re-saving today overwrites today's row in both modes. There is no
+// separate update endpoint; only today's handoff is editable by design.
 
 export async function deleteHandoff(id) {
   if (isGuest()) {
