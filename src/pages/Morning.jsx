@@ -41,12 +41,13 @@ export default function Morning() {
   }, [attachmentUrl]);
 
   const now = new Date();
-  const timeStr = now.toLocaleTimeString("en-MY", {
+  // Use the device locale — the app isn't Malaysia-specific.
+  const timeStr = now.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   });
-  const dateStr = now.toLocaleDateString("en-MY", {
+  const dateStr = now.toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
     day: "numeric",

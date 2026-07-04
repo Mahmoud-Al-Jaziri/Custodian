@@ -380,36 +380,44 @@ export default function Evening() {
         />
       </div>
 
-      {/* FILE UPLOAD */}
+      {/* FILE UPLOAD — hidden input behind a tappable label; the chosen file
+          shows as a removable pill instead of the raw browser control. */}
       <div className="mb-3">
-        <p
-          style={{
-            fontSize: 10,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "#9a9a94",
-            marginBottom: 8,
-          }}
-        >
-          Attach something for tomorrow-you
-        </p>
+        <p className="screen-label mb-2">Attach something for tomorrow-you</p>
 
-        <Form.Control
-          type="file"
-          accept="image/*,.pdf,.doc,.docx"
-          style={{
-            background: "#f6f4ef",
-            border: "none",
-            borderRadius: 10,
-            fontSize: 13,
-          }}
-          onChange={(e) => setFile(e.target.files[0] || null)}
-        />
-
-        {file && (
-          <p style={{ fontSize: 11, color: "#9a9a94", marginTop: 6 }}>
-            {file.name} · {(file.size / 1024).toFixed(1)} KB
-          </p>
+        {file ? (
+          <div className="attach-file">
+            <span className="text-truncate">
+              {file.name} · {(file.size / 1024).toFixed(1)} KB
+            </span>
+            <button
+              type="button"
+              className="attach-remove"
+              aria-label="Remove attachment"
+              onClick={() => setFile(null)}
+            >
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: 18 }}
+                aria-hidden="true"
+              >
+                close
+              </span>
+            </button>
+          </div>
+        ) : (
+          <label className="attach-btn">
+            <span className="material-symbols-outlined" aria-hidden="true">
+              add_photo_alternate
+            </span>
+            Add a photo or file
+            <input
+              type="file"
+              accept="image/*,.pdf,.doc,.docx"
+              hidden
+              onChange={(e) => setFile(e.target.files[0] || null)}
+            />
+          </label>
         )}
       </div>
 

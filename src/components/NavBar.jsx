@@ -1,66 +1,66 @@
-import { Navbar, Nav, Button } from "react-bootstrap";
+import { Nav } from "react-bootstrap";
 import { useNavigate, useLocation } from "react-router-dom";
-import { signOut } from 'firebase/auth'
-import { auth } from '../firebase'
-import { useAuth } from '../context/AuthContext'   // add
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase";
+import { useAuth } from "../context/AuthContext";
+
+const NAV_ITEMS = [
+  { path: "/morning", label: "morning", icon: "wb_twilight" },
+  { path: "/dashboard", label: "today", icon: "today" },
+  { path: "/evening", label: "evening", icon: "bedtime", id: "nav-evening" },
+];
 
 export default function NavBar() {
-  const NAV_ITEMS = [
-    { path: '/morning',   label: 'morning'  },
-    { path: '/dashboard', label: 'relay'    },
-    { path: '/evening',   label: 'evening', id: "nav-evening" },
-  ]
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();   // add
+  const { user } = useAuth();
+  // Local-first guest mode: no Firebase user at all means guest. (The old
+  // check for user.isAnonymous predates the removal of anonymous auth and
+  // never matched, so guests were shown "exit" instead of "save".)
+  const isGuest = !user;
 
   const handleLogout = async () => {
     try {
-      await signOut(auth)
-      navigate('/login')
+      await signOut(auth);
+      navigate("/login");
     } catch (err) {
-      console.error(err)
+      console.error(err);
     }
-  }
+  };
 
   return (
-    <Nav className="relay-nav justify-content-around py-2">
-      {NAV_ITEMS.map(({ path, label }) => (
+    <Nav as="nav" aria-label="Primary" className="relay-nav justify-content-around">
+      {NAV_ITEMS.map(({ path, label, icon, id }) => (
         <Nav.Link
           key={path}
-          className={pathname === path ? 'active text-center' : 'text-center'}
+          id={id}
+          aria-current={pathname === path ? "page" : undefined}
+          className={pathname === path ? "active" : ""}
           onClick={() => navigate(path)}
         >
-          <span className="nav-dot" />
+          <span className="material-symbols-outlined nav-icon" aria-hidden="true">
+            {icon}
+          </span>
           {label}
         </Nav.Link>
       ))}
 
-      {user?.isAnonymous ? (
-        // Guest — logout would destroy their data, so offer save instead
-        <Button
-          variant="link"
-          onClick={() => navigate('/login')}
-          className="logout-btn d-flex flex-column align-items-center p-0"
-        >
-          <span className="material-symbols-outlined logout-icon">
+      {isGuest ? (
+        // Guest — logging out would strand their local data, so offer save.
+        <Nav.Link onClick={() => navigate("/login")}>
+          <span className="material-symbols-outlined nav-icon" aria-hidden="true">
             bookmark
           </span>
           save
-        </Button>
+        </Nav.Link>
       ) : (
-        // Real account — normal logout
-        <Button
-          variant="link"
-          onClick={handleLogout}
-          className="logout-btn d-flex flex-column align-items-center p-0"
-        >
-          <span className="material-symbols-outlined logout-icon">
+        <Nav.Link onClick={handleLogout}>
+          <span className="material-symbols-outlined nav-icon" aria-hidden="true">
             logout
           </span>
           exit
-        </Button>
+        </Nav.Link>
       )}
     </Nav>
-  )
+  );
 }

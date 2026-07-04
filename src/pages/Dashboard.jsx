@@ -153,7 +153,7 @@ export default function Dashboard() {
               letterSpacing: "0.04em",
             }}
           >
-            Relay<span className="text-amber">.</span>
+            Custodian<span className="text-amber">.</span>
           </div>
           <span className="day-badge">
             {dayCount} {dayCount === 1 ? "day" : "days"} of carrying

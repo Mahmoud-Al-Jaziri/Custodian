@@ -3,8 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/high-resolution-color-logo.png" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- FILL axis included so active tab icons can render filled. -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0" rel="stylesheet" />
+    <!-- viewport-fit=cover enables env(safe-area-inset-*) on notched phones;
+         interactive-widget keeps the layout usable when the keyboard opens. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
 
     <!-- PWA theme + iOS home-screen support. iOS ignores the web manifest, so
          the apple-touch-icon and these meta tags are required there. -->
