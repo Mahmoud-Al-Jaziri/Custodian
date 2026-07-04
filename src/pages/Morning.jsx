@@ -1,10 +1,11 @@
-import { Button, Stack, Spinner } from "react-bootstrap";
+import { Button, Stack } from "react-bootstrap";
+import { LetterSkeleton } from "../components/Skeleton.jsx";
 import PageShell from "../components/Pageshell";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import LetterCard from "../components/LetterCard";
 import { getLatestHandoff, getAllHandoffs } from "../services/handoffs";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import HistoryOffcanvas from "../components/HistoryOffcanvas";
 
 // Resolve an image URL from either a cloud `image_url` field or a local Blob.
@@ -72,8 +73,9 @@ export default function Morning() {
     setShowHistory(true);
     setHistoryLoading(true);
     try {
-      const data = await getAllHandoffs();
-      setHistory(data.slice(0, 7));
+      // Server-side LIMIT — don't ship the whole archive for a 7-item sheet.
+      const data = await getAllHandoffs(7);
+      setHistory(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -101,7 +103,7 @@ export default function Morning() {
       </p>
 
       {loading ? (
-        <Spinner animation="border" size="sm" />
+        <LetterSkeleton />
       ) : handoff ? (
         <LetterCard
           note={handoff.note}

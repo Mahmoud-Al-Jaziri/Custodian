@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button, Form, Stack, Alert } from "react-bootstrap";
 import PageShell from "../components/Pageshell.jsx";
 import { createHandoff, getTodayHandoff } from "../services/handoffs.js";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth.js";
 import { getTomorrowWeather } from "../services/weather.js";
 import { useNavigate } from "react-router-dom";
+import { Skel } from "../components/Skeleton.jsx";
 
 const PROMPTS = ["what I finished", "what's left", "how I feel", "a small win"];
 // High safety backstop only — a real handoff never comes close. Protects the
@@ -136,7 +137,7 @@ export default function Evening() {
   }, [existing]);
 
   // Tomorrow's forecast (no auth needed — it's just an open weather call)
-  const requestLocation = async () => {
+  const requestLocation = useCallback(async () => {
     setWeatherLoading(true);
 
     try {
@@ -177,11 +178,11 @@ export default function Evening() {
       console.error(err);
       setWeatherLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     requestLocation();
-  }, []);
+  }, [requestLocation]);
 
   // SUBMIT HANDOFF — service decides local vs cloud
   const handleSubmit = async () => {
@@ -220,9 +221,8 @@ export default function Evening() {
       </p>
 
       {weatherLoading ? (
-        <p style={{ fontSize: 12, color: "#9a9a94" }}>
-          Getting tomorrow's weather...
-        </p>
+        // Same footprint as the weather strip below, so it doesn't jump.
+        <Skel h={72} r={12} className="mb-3" />
       ) : weather ? (
         <div
           id="weather-strip"
@@ -463,9 +463,8 @@ export default function Evening() {
           )}
         </>
       ) : checking ? (
-        <p style={{ fontSize: 12, color: "#9a9a94" }}>
-          Checking today's baton...
-        </p>
+        // Stand-in for the submit button while we look up today's handoff.
+        <Skel h={54} r={12} />
       ) : (
         <>
           {error && (

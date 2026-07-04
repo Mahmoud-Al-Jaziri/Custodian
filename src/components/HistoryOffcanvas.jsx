@@ -1,5 +1,6 @@
-import { Offcanvas, Spinner, Badge } from "react-bootstrap"
+import { Offcanvas, Badge } from "react-bootstrap"
 import LetterCard from "./LetterCard.jsx"
+import { LetterSkeleton } from "./Skeleton.jsx"
 
 export default function HistoryOffcanvas({ show, onHide, history, historyLoading }) {
   return (
@@ -43,8 +44,10 @@ export default function HistoryOffcanvas({ show, onHide, history, historyLoading
         {/* CENTER CONTAINER */}
         <div style={{ width: "100%", maxWidth: 520 }}>
           {historyLoading ? (
-            <div className="d-flex justify-content-center mt-4">
-              <Spinner animation="border" size="sm" />
+            <div className="mt-2">
+              <LetterSkeleton />
+              <LetterSkeleton />
+              <LetterSkeleton />
             </div>
           ) : history.length === 0 ? (
             <p

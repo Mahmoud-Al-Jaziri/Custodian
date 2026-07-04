@@ -15,18 +15,19 @@ const usersRouter = Router();
 // migration upserts the users row at first sign-in), but it's kept as a
 // safe, authenticated way to ensure a users row exists.
 usersRouter.post("/signup", verifyToken, async (req, res) => {
-  try {
-    const { display_name } = req.body;
-    await pool.query(
-      `INSERT INTO users (id, display_name)
-       VALUES ($1, $2)
-       ON CONFLICT (id) DO NOTHING`,
-      [req.user.uid, display_name || req.user.email || null]
-    );
-    res.status(201).json({ message: "user created" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  const { display_name } = req.body;
+  if (display_name != null && typeof display_name !== "string") {
+    return res.status(400).json({ error: "display_name must be a string" });
   }
+  // Errors reject and land in the central handler (index.js) — no raw
+  // Postgres messages to the client.
+  await pool.query(
+    `INSERT INTO users (id, display_name)
+     VALUES ($1, $2)
+     ON CONFLICT (id) DO NOTHING`,
+    [req.user.uid, (display_name || req.user.email || null)?.slice(0, 200) ?? null]
+  );
+  res.status(201).json({ message: "user created" });
 });
 
 export default usersRouter;

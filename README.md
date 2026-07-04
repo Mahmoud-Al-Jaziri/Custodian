@@ -49,14 +49,21 @@ VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
+VITE_API_URL=http://localhost:3000/api
 ```
 
 Create a `.env` file in `backend/` with:
 
 ```
+# Use Neon's POOLED ("-pooler") connection string — the backend runs on
+# serverless, and direct connections exhaust Postgres limits under load.
 DB_URL=
 OPENWEATHER_API_KEY=
 PORT=3000
+# JSON service account for verifying Firebase ID tokens
+FIREBASE_SERVICE_ACCOUNT=
+# Optional: extra allowed CORS origins, comma-separated (e.g. previews)
+ALLOWED_ORIGINS=
 ```
 
 Start the backend:
@@ -76,33 +83,37 @@ npm run dev
 
 ## Database setup
 
-Run these two queries in your Neon SQL editor:
+Run [`backend/schema.sql`](backend/schema.sql) in your Neon SQL editor. That
+file is the source of truth for the schema — keep it in sync with any manual
+changes.
 
-```sql
-CREATE TABLE users (
-  id TEXT PRIMARY KEY,
-  display_name TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+---
 
-CREATE TABLE handoffs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT REFERENCES users(id),
-  note TEXT NOT NULL,
-  one_thing TEXT,
-  image_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  relay_date DATE DEFAULT CURRENT_DATE,
-  UNIQUE(user_id, relay_date)
-);
+## Tests
+
+```bash
+npm test
 ```
+
+Unit tests cover the night-streak logic (`src/utils/relayStreak.js`) — the
+grace-night rules, refills, breaks, and date normalization.
 
 ---
 
 ## A few things worth knowing
 
-The custodian score is not a streak. Missing a day doesn't reset anything — it just lowers the percentage slightly. This was intentional. Streaks punish you for being human. A percentage just tells you where you are.
+The night streak is forgiving by design. You hold up to two "rest nights";
+a missed night spends one instead of breaking the streak, and every seven
+consecutive written nights earns one back. A broken run is never erased —
+your best streak stays banked. Streaks that reset to zero punish you for
+being human.
 
-The "yesterday" query doesn't actually fetch yesterday's date. It fetches the most recent handoff before today. This handles the case where you write your note at 1am — technically that's today's date, but it should show up the next morning.
+The "yesterday" query doesn't actually fetch yesterday's date. It fetches the
+most recent handoff before today. This handles the case where you write your
+note at 1am — technically that's today's date, but it should show up the next
+morning.
 
-Firebase Storage rules are locked to authenticated users. You can only read and write your own files.
+Firebase Storage rules live in [`storage.rules`](storage.rules) (deploy with
+`firebase deploy --only storage` or paste into the console): users can only
+read and write their own files, uploads are capped at 10 MB, and only the
+types the app's picker offers are accepted.

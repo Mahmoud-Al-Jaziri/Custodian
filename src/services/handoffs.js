@@ -4,8 +4,8 @@
 // is a guest, and to the cloud API when authenticated. Components never need
 // to know which mode they're in.
 //
-// SECURITY NOTE: the API now derives the user's identity from the verified
-// Firebase ID token on every request. We no longer send user_id in the URL
+// SECURITY NOTE: the API derives the user's identity from the verified
+// Firebase ID token on every request. We never send user_id in the URL
 // or body — the server wouldn't trust it anyway.
 
 import { auth } from "../firebase";
@@ -21,6 +21,18 @@ import { uploadHandoffAttachment } from "./storage";
 const API_URL = import.meta.env.VITE_API_URL;
 const today = () => new Date().toLocaleDateString("en-CA");
 const isGuest = () => !auth.currentUser;
+
+// Cloud rows arrive with relay_date as a full ISO timestamp (Postgres DATE →
+// JS Date → JSON). Local rows store plain "YYYY-MM-DD". Normalize HERE, at
+// the service boundary, so consumers only ever see one shape and never have
+// to slice dates themselves.
+function normalize(h) {
+  if (!h) return h;
+  return {
+    ...h,
+    relay_date: h.relay_date ? String(h.relay_date).slice(0, 10) : h.relay_date,
+  };
+}
 
 async function authHeaders() {
   const token = await auth.currentUser.getIdToken();
@@ -66,7 +78,7 @@ export async function createHandoff(note, oneThing, attachment = null) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to create handoff");
-  return data;
+  return normalize(data);
 }
 
 export async function getTodayHandoff() {
@@ -76,7 +88,7 @@ export async function getTodayHandoff() {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to fetch today's handoff");
-  return res.json();
+  return normalize(await res.json());
 }
 
 export async function getLatestHandoff() {
@@ -86,17 +98,43 @@ export async function getLatestHandoff() {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to fetch handoff");
-  return res.json();
+  return normalize(await res.json());
 }
 
-export async function getAllHandoffs() {
-  if (isGuest()) return getAllLocalHandoffs();
+// Full records, newest first. Pass `limit` when you only need the first N —
+// the cloud query then LIMITs server-side instead of shipping the archive.
+export async function getAllHandoffs(limit = null) {
+  if (isGuest()) {
+    const all = await getAllLocalHandoffs();
+    return limit ? all.slice(0, limit) : all;
+  }
 
-  const res = await fetch(`${API_URL}/handoffs`, {
+  const url = limit
+    ? `${API_URL}/handoffs?limit=${limit}`
+    : `${API_URL}/handoffs`;
+  const res = await fetch(url, { headers: await authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch handoffs");
+  return (await res.json()).map(normalize);
+}
+
+// Lightweight projection for the Dashboard: id/relay_date/one_thing only.
+// Enough for the streak, the calendar, and the "one thing" card at a
+// fraction of the payload of the full archive.
+export async function getHandoffSummaries() {
+  if (isGuest()) {
+    const all = await getAllLocalHandoffs();
+    return all.map(({ id, relay_date, one_thing }) => ({
+      id,
+      relay_date,
+      one_thing,
+    }));
+  }
+
+  const res = await fetch(`${API_URL}/handoffs?fields=summary`, {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to fetch handoffs");
-  return res.json();
+  return (await res.json()).map(normalize);
 }
 
 // Editing tonight's handoff is just another createHandoff() call — the API

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Card, Spinner } from "react-bootstrap";
+import { Button, Card } from "react-bootstrap";
+import { DashboardSkeleton } from "../components/Skeleton.jsx";
 import PageShell from "../components/Pageshell.jsx";
 import RelayScore from "../components/Relayscore.jsx";
-import { getAllHandoffs } from "../services/handoffs.js";
+import { getHandoffSummaries } from "../services/handoffs.js";
 import { computeRelayStreak } from "../utils/relayStreak.js";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth.js";
 import PomodoroTimer from "../components/PomodoroTimer.jsx";
 import AppTour from "../components/AppTour.jsx";
 
@@ -81,7 +82,9 @@ export default function Dashboard() {
 
     async function fetchData() {
       try {
-        const data = await getAllHandoffs();
+        // Summaries (id/relay_date/one_thing) are all this page needs —
+        // the full notes never render here.
+        const data = await getHandoffSummaries();
         setHandoffs(data);
 
         // Forgiving night-streak — replaces the old lifetime percentage, which
@@ -90,8 +93,12 @@ export default function Dashboard() {
         setStreak(streak);
         setDayCount(streak.totalDays);
 
-        const latest = data[0];
-        if (latest?.one_thing) setOneThing(latest.one_thing);
+        // "Your one thing today" is what YESTERDAY-you left — the most recent
+        // handoff before today. data[0] would show tonight's own instruction
+        // right after you write it, which is meant for tomorrow.
+        const todayStr = new Date().toLocaleDateString("en-CA");
+        const fromYesterday = data.find((h) => h.relay_date < todayStr);
+        if (fromYesterday?.one_thing) setOneThing(fromYesterday.one_thing);
 
         // Decide what to show (if anything) for the upgrade prompt
         setUpgradeMsg(
@@ -127,9 +134,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <PageShell>
-        <div className="d-flex justify-content-center mt-5">
-          <Spinner animation="border" size="sm" />
-        </div>
+        <DashboardSkeleton />
       </PageShell>
     );
   }
@@ -215,7 +220,7 @@ export default function Dashboard() {
         </div>
 
         {oneThing ? (
-          <Card id="one-thing" className="one-thing-card border-0 mb-3">
+          <Card id="one-thing" className="one-thing-card mb-3">
             <Card.Body className="p-3">
               <p className="screen-label text-amber mb-2">
                 Your one thing today
@@ -229,7 +234,7 @@ export default function Dashboard() {
             </Card.Body>
           </Card>
         ) : (
-          <Card id="one-thing" className="one-thing-card border-0 mb-3">
+          <Card id="one-thing" className="one-thing-card mb-3">
             <Card.Body className="p-3">
               <p className="screen-label text-amber mb-2">
                 Your one thing today
@@ -252,7 +257,7 @@ export default function Dashboard() {
           <PomodoroTimer />
         </div>
 
-        <Card className="one-thing-card border-0 mb-3">
+        <Card className="one-thing-card mb-3">
           <Card.Body className="p-3 text-center">
             <p
               className="font-serif mb-0"

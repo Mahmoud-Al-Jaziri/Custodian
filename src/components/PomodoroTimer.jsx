@@ -1,16 +1,21 @@
 import { useState, useEffect, useRef } from "react"
 import { Card, Button } from "react-bootstrap"
 
+// Matches the copy everywhere else (tour, README): 25 focus / 5 break.
+const FOCUS_SECS = 25 * 60
+const BREAK_SECS = 5 * 60
+
 export default function PomodoroTimer() {
-  const [timerRunning, setTimerRunning] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(20 * 60)
   const [isBreak, setIsBreak] = useState(false)
-  const intervalRef = useRef(null)
-  const audioCtxRef = useRef(null)
+  const [running, setRunning] = useState(false)
+  // Deadline-based countdown: `remaining` is derived from a wall-clock end
+  // time on every tick, so background-tab throttling (which slows setInterval
+  // to once a minute on mobile) can't drift the timer.
+  const [remaining, setRemaining] = useState(FOCUS_SECS)
+  const endAtRef = useRef(null)
 
   const playDing = () => {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    audioCtxRef.current = ctx
 
     const frequencies = [523, 659, 784]
 
@@ -33,34 +38,31 @@ export default function PomodoroTimer() {
     })
   }
 
-  // interval: ONLY handles countdown
+  // While running, sync `remaining` with the deadline. Phase completion is
+  // handled here in the tick callback (an external-system event), not in a
+  // state-watching effect.
   useEffect(() => {
-    if (timerRunning) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft(prev => prev - 1)
-      }, 1000)
-    } else {
-      clearInterval(intervalRef.current)
-    }
+    if (!running) return
 
-    return () => clearInterval(intervalRef.current)
-  }, [timerRunning])
+    const id = setInterval(() => {
+      const left = Math.max(
+        0,
+        Math.round((endAtRef.current - Date.now()) / 1000)
+      )
+      setRemaining(left)
 
-  // handle when timer reaches 0
-  useEffect(() => {
-    if (timeLeft !== 0) return
+      if (left === 0) {
+        clearInterval(id)
+        setRunning(false)
+        const nextIsBreak = !isBreak
+        setIsBreak(nextIsBreak)
+        setRemaining(nextIsBreak ? BREAK_SECS : FOCUS_SECS)
+        playDing()
+      }
+    }, 250)
 
-    clearInterval(intervalRef.current)
-    setTimerRunning(false)
-
-    setIsBreak(prev => {
-      const next = !prev
-      setTimeLeft(next ? 5 * 60 : 20 * 60)
-      return next
-    })
-
-    playDing()
-  }, [timeLeft])
+    return () => clearInterval(id)
+  }, [running, isBreak])
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, "0")
@@ -68,28 +70,35 @@ export default function PomodoroTimer() {
     return `${m}:${s}`
   }
 
+  const toggle = () => {
+    if (running) {
+      // Capture the exact remainder so pausing doesn't lose a partial second.
+      setRemaining(
+        Math.max(0, Math.round((endAtRef.current - Date.now()) / 1000))
+      )
+      setRunning(false)
+    } else {
+      endAtRef.current = Date.now() + remaining * 1000
+      setRunning(true)
+    }
+  }
+
   const resetTimer = () => {
-    clearInterval(intervalRef.current)
-    setTimerRunning(false)
+    setRunning(false)
     setIsBreak(false)
-    setTimeLeft(20 * 60)
+    setRemaining(FOCUS_SECS)
   }
 
   const handleSkip = () => {
-    clearInterval(intervalRef.current)
-    setTimerRunning(false)
-
-    setIsBreak(prev => {
-      const next = !prev
-      setTimeLeft(next ? 5 * 60 : 20 * 60)
-      return next
-    })
-
+    setRunning(false)
+    const nextIsBreak = !isBreak
+    setIsBreak(nextIsBreak)
+    setRemaining(nextIsBreak ? BREAK_SECS : FOCUS_SECS)
     playDing()
   }
 
   return (
-    <Card className="one-thing-card border-0 mb-3">
+    <Card className="one-thing-card mb-3">
       <Card.Body className="p-3 text-center">
         <p className="screen-label mb-1">
           {isBreak ? "break time" : "focus time"}
@@ -104,22 +113,22 @@ export default function PomodoroTimer() {
             letterSpacing: "0.05em"
           }}
         >
-          {formatTime(timeLeft)}
+          {formatTime(remaining)}
         </p>
 
         <div className="d-flex justify-content-center gap-2">
           <Button
             className="btn-amber border-0 px-4"
             style={{ fontSize: 13 }}
-            onClick={() => setTimerRunning(prev => !prev)}
+            onClick={toggle}
           >
-            {timerRunning ? "pause" : "start"}
+            {running ? "pause" : "start"}
           </Button>
 
           <Button
             variant="outline-secondary"
             className="px-3"
-            style={{ fontSize: 13, borderColor: "rgba(0,0,0,0.15)" }}
+            style={{ fontSize: 13 }}
             onClick={resetTimer}
           >
             reset
@@ -128,7 +137,7 @@ export default function PomodoroTimer() {
           <Button
             variant="outline-secondary"
             className="px-3"
-            style={{ fontSize: 13, borderColor: "rgba(0,0,0,0.15)" }}
+            style={{ fontSize: 13 }}
             onClick={handleSkip}
           >
             skip

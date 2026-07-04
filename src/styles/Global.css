@@ -212,6 +212,31 @@ input, textarea, select { touch-action: manipulation; }
 }
 .attach-remove:active { background: rgba(186, 117, 23, 0.15); }
 
+/* ---- Skeleton loading ----------------------------------------------------
+   Warm-toned placeholder blocks with a light shimmer sweep. Compose with the
+   primitives in components/Skeleton.jsx so each skeleton mirrors the layout
+   it stands in for. */
+
+.skel {
+  position: relative;
+  overflow: hidden;
+  background: #ece8e0;
+  border-radius: 8px;
+}
+.skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: skel-sweep 1.6s ease-in-out infinite;
+}
+@keyframes skel-sweep {
+  100% { transform: translateX(100%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  /* The * rule doesn't reach pseudo-elements — stop the shimmer explicitly. */
+  .skel::after { animation: none; }
 }

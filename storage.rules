@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Firebase Storage rules for handoff attachments.
+// Deploy with: firebase deploy --only storage   (or paste into the console).
+// This file is the versioned source of truth for what the console holds.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Attachments live at handoffs/<uid>/<relay_date>.<ext>. Users can only
+    // read and write inside their own folder, uploads are capped at 10 MB,
+    // and only the types the app's picker offers are accepted. SVG is
+    // deliberately excluded (script-capable when served inline).
+    match /handoffs/{userId}/{fileName} {
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches(
+                        'image/jpeg|image/png|image/webp|image/gif|image/heic|image/heif|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                      );
+    }
+
+    // Everything else: no access.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

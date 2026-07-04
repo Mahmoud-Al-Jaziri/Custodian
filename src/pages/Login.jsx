@@ -7,7 +7,7 @@ import {
 import { Form, Button, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { countLocalHandoffs } from "../services/localHandoffs";
 import { migrateGuestHandoffsToCloud } from "../services/migration";
 

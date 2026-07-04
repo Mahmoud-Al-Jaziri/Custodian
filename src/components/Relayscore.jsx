@@ -16,9 +16,7 @@ export default function RelayScore({
   best = 0,
   grace = 2,
   graceMax = 2,
-  todayWritten = false,
   status = "empty",
-  history = [],
   handoffs = [],
 }) {
   let message = MESSAGES[status];

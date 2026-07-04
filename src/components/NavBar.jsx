@@ -2,7 +2,7 @@ import { Nav } from "react-bootstrap";
 import { useNavigate, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 const NAV_ITEMS = [
   { path: "/morning", label: "morning", icon: "wb_twilight" },
