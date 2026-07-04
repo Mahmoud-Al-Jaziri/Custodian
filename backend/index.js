@@ -27,7 +27,8 @@ app.use(
         return callback(null, true);
       }
 
-      if (origin === "http://localhost:5173") return callback(null, true);
+      // Any localhost port — covers vite dev (5173) and vite preview (4173).
+      if (/^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
 
       if (
         origin.endsWith(".vercel.app") &&
