@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import usersRouter from "./routes/users.js";
 import handoffsRouter from "./routes/handoffs.js";
 import weatherRouter from "./routes/weather.js";
+import notificationsRouter from "./routes/notifications.js";
 import { verifyToken } from "./middleware/auth.js";
 
 const app = express();
@@ -55,6 +56,10 @@ const weatherLimiter = rateLimit({
 
 app.use("/api", usersRouter);
 app.use("/api/handoffs", verifyToken, handoffsRouter);
+
+// Mixed auth inside: subscribe/settings use verifyToken per-route, dispatch
+// uses the CRON_SECRET header (it's called by the scheduler, not a user).
+app.use("/api/notifications", notificationsRouter);
 
 // Weather is a public passthrough to OpenWeather. No user identity is
 // involved, so it's intentionally not gated by verifyToken — guests need

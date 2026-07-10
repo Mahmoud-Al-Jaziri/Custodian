@@ -1,0 +1,27 @@
+# Hourly trigger for evening reminder pushes. The backend decides who is
+# actually due (per-user timezone + chosen hour + already-wrote-tonight
+# check); this job just rings the bell.
+#
+# Requires a repo secret named CRON_SECRET matching the backend's
+# CRON_SECRET env var (Settings → Secrets and variables → Actions).
+#
+# NOTE: GitHub pauses scheduled workflows after ~60 days without repo
+# activity — a commit re-enables them. Schedules can also lag a few minutes,
+# which the dispatch endpoint absorbs with a one-hour grace window.
+
+name: Evening reminders
+
+on:
+  schedule:
+    - cron: "0 * * * *" # hourly, on the hour (UTC)
+  workflow_dispatch: {} # manual "Run workflow" button for testing
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder dispatch
+        run: |
+          curl -sS --fail-with-body -X POST \
+            "https://custodian-coral.vercel.app/api/notifications/dispatch" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"

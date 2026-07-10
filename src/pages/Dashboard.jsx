@@ -9,6 +9,7 @@ import { computeRelayStreak } from "../utils/relayStreak.js";
 import { useAuth } from "../context/useAuth.js";
 import PomodoroTimer from "../components/PomodoroTimer.jsx";
 import AppTour from "../components/AppTour.jsx";
+import ReminderCard from "../components/ReminderCard.jsx";
 
 const LAST_VISIT_KEY = "lastVisit";
 const PROMPT_DISMISSED_KEY = "upgradePromptDismissedAt";
@@ -256,6 +257,8 @@ export default function Dashboard() {
         <div id="pomodoro">
           <PomodoroTimer />
         </div>
+
+        <ReminderCard />
 
         <Card className="one-thing-card mb-3">
           <Card.Body className="p-3 text-center">

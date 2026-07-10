@@ -7,9 +7,15 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Custom service worker (src/sw.js): Workbox precaching + the push
+      // handlers for evening reminders. injectManifest compiles our file and
+      // injects the precache manifest into self.__WB_MANIFEST.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       // Background updates: a new build's service worker installs and takes
       // over on the next load, so signed-in users never run a stale shell.
-      // (This is an update strategy, not an install prompt.)
+      // (skipWaiting/clientsClaim live in src/sw.js.)
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       // devOptions.enabled is left false, so the service worker is NOT
@@ -37,33 +43,11 @@ export default defineConfig({
           { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
-        // Precache the built app shell so the app opens offline. With HashRouter
-        // every route is served from index.html, so the shell covers all routes.
+      injectManifest: {
+        // Precache the built app shell so the app opens offline. Runtime
+        // caching policy (Google Fonts only, never the API) lives in
+        // src/sw.js next to the push handlers.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
-        navigateFallback: 'index.html',
-        cleanupOutdatedCaches: true,
-        // No runtimeCaching for the API (custodian-coral.vercel.app) or Firebase:
-        // those cross-origin requests always hit the network, so a signed-in
-        // user never sees stale authenticated data. Only Google Fonts — static,
-        // public assets — are cached, so the shell renders with brand fonts and
-        // Material Symbols even offline.
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts-stylesheets' },
-          },
-          {
-            urlPattern: ({ url }) => url.origin === 'https://fonts.gstatic.com',
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-webfonts',
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
       },
     }),
   ],

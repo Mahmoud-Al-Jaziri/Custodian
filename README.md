@@ -50,6 +50,8 @@ VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_API_URL=http://localhost:3000/api
+# Web Push public key (npx web-push generate-vapid-keys)
+VITE_VAPID_PUBLIC_KEY=
 ```
 
 Create a `.env` file in `backend/` with:
@@ -64,6 +66,12 @@ PORT=3000
 FIREBASE_SERVICE_ACCOUNT=
 # Optional: extra allowed CORS origins, comma-separated (e.g. previews)
 ALLOWED_ORIGINS=
+# Web Push (evening reminders) — npx web-push generate-vapid-keys
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:you@example.com
+# Shared secret for the reminder scheduler (any long random string)
+CRON_SECRET=
 ```
 
 Start the backend:
@@ -86,6 +94,31 @@ npm run dev
 Run [`backend/schema.sql`](backend/schema.sql) in your Neon SQL editor. That
 file is the source of truth for the schema — keep it in sync with any manual
 changes.
+
+---
+
+## Evening reminders (Web Push)
+
+Signed-in users can opt into a nightly push ("Tomorrow-you is waiting…") from
+the Dashboard. How it fits together:
+
+- The custom service worker (`src/sw.js`) shows the notification and opens
+  the Evening page on tap.
+- `POST /api/notifications/subscribe` stores the device's push subscription
+  with the user's timezone and chosen hour (`push_subscriptions` table).
+- A GitHub Actions cron (`.github/workflows/reminders.yml`) hits
+  `POST /api/notifications/dispatch` hourly with the `CRON_SECRET` header.
+  The backend sends to everyone whose local hour matches their chosen hour —
+  and skips anyone who already wrote tonight's handoff.
+
+Setup: generate VAPID keys (`npx web-push generate-vapid-keys`), set the env
+vars above (backend + `VITE_VAPID_PUBLIC_KEY` on the frontend), run the
+`push_subscriptions` part of `backend/schema.sql` in Neon, and add
+`CRON_SECRET` as a GitHub Actions repo secret.
+
+iOS note: reminders require the app installed to the home screen (iOS 16.4+).
+The service worker only runs in production builds, so test with
+`npm run build && npm run preview`, not `npm run dev`.
 
 ---
 

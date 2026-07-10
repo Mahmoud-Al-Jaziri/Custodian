@@ -8,6 +8,23 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- One row per device that opted into evening reminders. endpoint is the
+-- push service URL the browser issued; it uniquely identifies the device.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  timezone TEXT NOT NULL DEFAULT 'UTC',
+  remind_hour INT NOT NULL DEFAULT 21 CHECK (remind_hour BETWEEN 0 AND 23),
+  last_sent_date DATE,              -- user-local date of the last send (dedupe)
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx
+  ON push_subscriptions (user_id);
+
 CREATE TABLE IF NOT EXISTS handoffs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT REFERENCES users(id),
