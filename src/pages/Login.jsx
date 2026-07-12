@@ -308,6 +308,15 @@ export default function Login() {
             keep going as a guest
           </Button>
         </p>
+
+        {/* The philosophy, for whoever wants it — one line, not a deck. */}
+        <p
+          className="text-center font-serif fst-italic mt-4 mb-0"
+          style={{ fontSize: 12, color: "#9a9a94", lineHeight: 1.7 }}
+        >
+          You're not the same person every day. Custodian turns that into a
+          practice — today-you takes care of tomorrow-you.
+        </p>
       </main>
     </div>
   );

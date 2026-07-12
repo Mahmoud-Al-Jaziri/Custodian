@@ -6,6 +6,7 @@ import { useAuth } from "../context/useAuth.js";
 import { getTomorrowWeather } from "../services/weather.js";
 import { useNavigate } from "react-router-dom";
 import { Skel } from "../components/Skeleton.jsx";
+import { countLocalHandoffs } from "../services/localHandoffs.js";
 
 const PROMPTS = ["what I finished", "what's left", "how I feel", "a small win"];
 // High safety backstop only — a real handoff never comes close. Protects the
@@ -37,6 +38,20 @@ export default function Evening() {
   const [existing, setExisting] = useState(null);
   const [wasEditing, setWasEditing] = useState(false);
   const [checking, setChecking] = useState(true);
+
+  // First note ever (guests with an empty local store). The first note IS
+  // the onboarding, so this state swaps the poetic copy for plain
+  // instruction and makes the success moment explain the payoff.
+  // `sealedFirst` is captured at submit time so the success copy holds even
+  // after the store is no longer empty.
+  const [firstNote, setFirstNote] = useState(false);
+  const [sealedFirst, setSealedFirst] = useState(false);
+  useEffect(() => {
+    if (authLoading || user) return;
+    countLocalHandoffs()
+      .then((n) => setFirstNote(n === 0))
+      .catch(() => {});
+  }, [authLoading, user]);
 
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
@@ -192,6 +207,7 @@ export default function Evening() {
     setError("");
     setSaved(false);
     setWasEditing(Boolean(existing));
+    setSealedFirst(firstNote && !existing);
 
     try {
       if (file && !isGuest) setUploading(true);
@@ -214,11 +230,20 @@ export default function Evening() {
       <p className="screen-label mb-3">Evening · Handoff</p>
 
       <p
-        className="font-serif fst-italic mb-4"
+        className="font-serif fst-italic mb-2"
         style={{ fontSize: 18, lineHeight: 1.5 }}
       >
-        "What do you want tomorrow's you to know?"
+        {firstNote && !existing
+          ? "Write a note. Tomorrow-you reads it in the morning."
+          : "“What do you want tomorrow's you to know?”"}
       </p>
+      {firstNote && !existing && (
+        <p className="mb-4" style={{ fontSize: 13, color: "#9a9a94" }}>
+          A few lines is plenty — what happened today, and one thing to
+          start with tomorrow.
+        </p>
+      )}
+      {!(firstNote && !existing) && <div className="mb-4" />}
 
       {weatherLoading ? (
         // Same footprint as the weather strip below, so it doesn't jump.
@@ -425,7 +450,9 @@ export default function Evening() {
       {saved ? (
         <>
           <Alert variant="success" style={{ fontSize: 12 }}>
-            {wasEditing
+            {sealedFirst
+              ? "Sealed. Tomorrow morning, this becomes your first letter from yesterday-you."
+              : wasEditing
               ? "Baton updated. Tomorrow-you has the latest."
               : "Baton passed. Tomorrow-you is ready."}
           </Alert>
@@ -507,6 +534,8 @@ export default function Evening() {
                   : "Passing..."
                 : isEditing
                 ? "UPDATE TONIGHT'S BATON →"
+                : firstNote
+                ? "SEAL FOR TOMORROW →"
                 : "SEAL AND PASS TO TOMORROW →"}
             </Button>
           </Stack>

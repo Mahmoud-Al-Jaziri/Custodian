@@ -111,27 +111,49 @@ export default function Morning() {
           imageUrl={attachmentUrl}
         />
       ) : (
-        <p style={{ fontSize: 13, color: "#9a9a94", fontStyle: "italic" }}>
-          Yesterday's you didn't leave a note. Start fresh.
-        </p>
+        // Starter letter: a first-time visitor should never meet an empty
+        // screen. One pre-written note demonstrates the entire loop in
+        // twenty seconds; it disappears forever once they write their own.
+        <LetterCard
+          from="the custodian before you"
+          note={
+            "This is how mornings work here.\n\n" +
+            "Every evening, you leave a few lines for tomorrow-you — what " +
+            "you finished, what's left, one small thing to start with. " +
+            "While you sleep, the note waits.\n\n" +
+            "Write the first one tonight. Tomorrow, the letter here will " +
+            "be from you."
+          }
+        />
       )}
 
       <Stack gap={2} className="mt-3">
-        <Button
-          className="btn-amber w-100 py-3 border-0"
-          onClick={() => navigate("/dashboard")}
-        >
-          START TODAY'S RELAY →
-        </Button>
+        {handoff ? (
+          <Button
+            className="btn-amber w-100 py-3 border-0"
+            onClick={() => navigate("/dashboard")}
+          >
+            START TODAY'S RELAY →
+          </Button>
+        ) : (
+          <Button
+            className="btn-amber w-100 py-3 border-0"
+            onClick={() => navigate("/evening")}
+          >
+            WRITE YOUR FIRST NOTE →
+          </Button>
+        )}
 
-        <Button
-          variant="outline-secondary"
-          size="sm"
-          className="rounded-pill px-3 my-3"
-          onClick={handleShowHistory}
-        >
-          📜 Read last week's notes
-        </Button>
+        {handoff && (
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            className="rounded-pill px-3 my-3"
+            onClick={handleShowHistory}
+          >
+            📜 Read last week's notes
+          </Button>
+        )}
 
         <HistoryOffcanvas
           show={showHistory}

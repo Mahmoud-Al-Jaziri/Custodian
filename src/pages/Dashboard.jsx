@@ -8,7 +8,6 @@ import { getHandoffSummaries } from "../services/handoffs.js";
 import { computeRelayStreak } from "../utils/relayStreak.js";
 import { useAuth } from "../context/useAuth.js";
 import PomodoroTimer from "../components/PomodoroTimer.jsx";
-import AppTour from "../components/AppTour.jsx";
 import ReminderCard from "../components/ReminderCard.jsx";
 
 const LAST_VISIT_KEY = "lastVisit";
@@ -62,7 +61,6 @@ export default function Dashboard() {
   const [handoffs, setHandoffs] = useState([]);
   const [oneThing, setOneThing] = useState(null);
   const [dayCount, setDayCount] = useState(0);
-  const [runTour, setRunTour] = useState(false);
   const [upgradeMsg, setUpgradeMsg] = useState(null);
 
   // Track "last visit" so we can show a returning-user prompt
@@ -119,14 +117,6 @@ export default function Dashboard() {
     fetchData();
   }, [authLoading, user, isGuest, daysSinceLastVisit]);
 
-  useEffect(() => {
-    if (loading) return;
-    const tourKey = `tourDone_${user?.uid || "guest"}`;
-    if (!localStorage.getItem(tourKey)) {
-      setTimeout(() => setRunTour(true), 500);
-    }
-  }, [loading, user]);
-
   const dismissUpgrade = () => {
     localStorage.setItem(PROMPT_DISMISSED_KEY, String(Date.now()));
     setUpgradeMsg(null);
@@ -140,87 +130,107 @@ export default function Dashboard() {
     );
   }
 
+  // EARNED INTERFACE — cards appear when they become relevant, so a new
+  // user sees one clear action instead of a wall of empty widgets (and
+  // nothing here needs a tour to explain itself):
+  //   - streak card: after night 2, when there's a streak to show
+  //   - one thing + focus timer: when yesterday-you left an instruction
+  //   - reminder + quote: after the first note exists
+  const hasNotes = handoffs.length > 0;
+  const showStreak = Boolean(streak) && streak.totalDays >= 2;
+
   return (
-    <>
-      <AppTour
-        run={runTour}
-        onFinish={() => {
-          const tourKey = `tourDone_${user?.uid || "guest"}`;
-          localStorage.setItem(tourKey, "true");
-          setRunTour(false);
-        }}
-      />
-      <PageShell>
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <div
-            style={{
-              fontSize: 16,
-              fontWeight: 500,
-              letterSpacing: "0.04em",
-            }}
-          >
-            Custodian<span className="text-amber">.</span>
-          </div>
+    <PageShell>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div
+          style={{
+            fontSize: 16,
+            fontWeight: 500,
+            letterSpacing: "0.04em",
+          }}
+        >
+          Custodian<span className="text-amber">.</span>
+        </div>
+        {hasNotes && (
           <span className="day-badge">
             {dayCount} {dayCount === 1 ? "day" : "days"} of carrying
           </span>
-        </div>
+        )}
+      </div>
 
-        {upgradeMsg && (
-          <div
-            className="mb-3 p-3"
+      {upgradeMsg && (
+        <div
+          className="mb-3 p-3"
+          style={{
+            background:
+              upgradeMsg.tone === "high" ? "#F5DBA5" : "#FAEEDA",
+            borderRadius: 12,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <p
+            className="mb-0"
             style={{
-              background:
-                upgradeMsg.tone === "high" ? "#F5DBA5" : "#FAEEDA",
-              borderRadius: 12,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 12,
+              fontSize: 12,
+              color: "#633806",
+              lineHeight: 1.5,
+              flex: 1,
             }}
           >
-            <p
-              className="mb-0"
+            {upgradeMsg.text}
+          </p>
+          <div className="d-flex flex-column gap-1 flex-shrink-0">
+            <Button
+              size="sm"
+              className="btn-amber border-0"
+              onClick={() => navigate("/login")}
+              style={{ fontSize: 11, whiteSpace: "nowrap" }}
+            >
+              Save relay →
+            </Button>
+            <Button
+              size="sm"
+              variant="link"
+              onClick={dismissUpgrade}
               style={{
-                fontSize: 12,
-                color: "#633806",
-                lineHeight: 1.5,
-                flex: 1,
+                fontSize: 10,
+                color: "#9a7548",
+                textDecoration: "none",
+                padding: 0,
               }}
             >
-              {upgradeMsg.text}
-            </p>
-            <div className="d-flex flex-column gap-1 flex-shrink-0">
-              <Button
-                size="sm"
-                className="btn-amber border-0"
-                onClick={() => navigate("/login")}
-                style={{ fontSize: 11, whiteSpace: "nowrap" }}
-              >
-                Save relay →
-              </Button>
-              <Button
-                size="sm"
-                variant="link"
-                onClick={dismissUpgrade}
-                style={{
-                  fontSize: 10,
-                  color: "#9a7548",
-                  textDecoration: "none",
-                  padding: 0,
-                }}
-              >
-                Not now
-              </Button>
-            </div>
+              Not now
+            </Button>
           </div>
-        )}
-
-        <div id="relay-score">
-          {streak && <RelayScore {...streak} handoffs={handoffs} />}
         </div>
+      )}
 
-        {oneThing ? (
+      {!hasNotes && (
+        <Card className="one-thing-card mb-3">
+          <Card.Body className="p-3">
+            <p className="screen-label text-amber mb-2">How this works</p>
+            <p
+              className="mb-0"
+              style={{ fontSize: 14, lineHeight: 1.7, color: "#5a5a56" }}
+            >
+              Each evening, leave a short note for tomorrow-you. Each
+              morning, wake up and read it. That's the whole practice.
+            </p>
+          </Card.Body>
+        </Card>
+      )}
+
+      {showStreak && (
+        <div id="relay-score">
+          <RelayScore {...streak} handoffs={handoffs} />
+        </div>
+      )}
+
+      {oneThing && (
+        <>
           <Card id="one-thing" className="one-thing-card mb-3">
             <Card.Body className="p-3">
               <p className="screen-label text-amber mb-2">
@@ -234,32 +244,17 @@ export default function Dashboard() {
               </p>
             </Card.Body>
           </Card>
-        ) : (
-          <Card id="one-thing" className="one-thing-card mb-3">
-            <Card.Body className="p-3">
-              <p className="screen-label text-amber mb-2">
-                Your one thing today
-              </p>
-              <p
-                className="mb-0"
-                style={{
-                  fontSize: 13,
-                  color: "#9a9a94",
-                  fontStyle: "italic",
-                }}
-              >
-                Yesterday-you didn't leave a one thing. Set one tonight.
-              </p>
-            </Card.Body>
-          </Card>
-        )}
 
-        <div id="pomodoro">
-          <PomodoroTimer />
-        </div>
+          {/* The timer exists to do the one thing — no instruction, no timer. */}
+          <div id="pomodoro">
+            <PomodoroTimer />
+          </div>
+        </>
+      )}
 
-        <ReminderCard />
+      {hasNotes && <ReminderCard />}
 
+      {hasNotes && (
         <Card className="one-thing-card mb-3">
           <Card.Body className="p-3 text-center">
             <p
@@ -293,15 +288,15 @@ export default function Dashboard() {
             </p>
           </Card.Body>
         </Card>
+      )}
 
-        <Button
-          id="write-handoff"
-          className="btn-amber w-100 py-3 border-0"
-          onClick={() => navigate("/evening")}
-        >
-          WRITE TONIGHT'S HANDOFF
-        </Button>
-      </PageShell>
-    </>
+      <Button
+        id="write-handoff"
+        className="btn-amber w-100 py-3 border-0"
+        onClick={() => navigate("/evening")}
+      >
+        {hasNotes ? "WRITE TONIGHT'S HANDOFF" : "WRITE TONIGHT'S NOTE →"}
+      </Button>
+    </PageShell>
   );
 }
