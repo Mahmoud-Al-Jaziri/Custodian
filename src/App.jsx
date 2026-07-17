@@ -8,6 +8,7 @@ import AuthCallback from "./pages/AuthCallback";
 import { useAuth } from "./context/useAuth";
 import { countLocalHandoffs } from "./services/localHandoffs";
 import { launchRoute } from "./utils/launchRoute";
+import UpdateBanner from "./components/UpdateBanner";
 
 // Time-aware landing: open on the screen that matches now (read in the
 // morning, do during the day, write in the evening). A brand-new visitor
@@ -41,6 +42,7 @@ function Landing() {
 function App() {
   return (
     <HashRouter>
+      <UpdateBanner />
       <Routes>
         <Route path="/" element={<Landing />} />
 

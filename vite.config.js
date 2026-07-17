@@ -13,10 +13,12 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.js',
-      // Background updates: a new build's service worker installs and takes
-      // over on the next load, so signed-in users never run a stale shell.
-      // (skipWaiting/clientsClaim live in src/sw.js.)
-      registerType: 'autoUpdate',
+      // Update strategy: 'prompt'. UpdateBanner.jsx checks for new versions
+      // hourly and on app-foreground (installed PWAs resume rather than
+      // relaunch, so load-time checks alone leave them stuck on old builds),
+      // then shows a refresh banner. No silent auto-reload — that could eat
+      // a half-written evening note.
+      registerType: 'prompt',
       injectRegister: 'auto',
       // devOptions.enabled is left false, so the service worker is NOT
       // registered during `npm run dev` — only in production builds.

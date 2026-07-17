@@ -13,9 +13,13 @@ import { ExpirationPlugin } from "workbox-expiration";
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
 import { clientsClaim } from "workbox-core";
 
-// autoUpdate semantics: a new build's worker takes over immediately so users
-// never keep running a stale shell.
-self.skipWaiting();
+// Prompt-based updates: a new worker waits until the user taps "Refresh"
+// in the update banner (which sends SKIP_WAITING), or until the app is
+// fully closed and reopened. clientsClaim makes the activation take over
+// open pages so the banner's reload lands on the new version.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+});
 clientsClaim();
 
 cleanupOutdatedCaches();
