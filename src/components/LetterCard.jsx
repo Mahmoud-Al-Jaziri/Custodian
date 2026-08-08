@@ -51,6 +51,11 @@ export default function LetterCard({
               <img
                 src={imageUrl}
                 alt="attachment from yesterday-you"
+                // The history sheet stacks seven of these. Without lazy, opening
+                // it downloads every attachment at once — most of them below the
+                // fold and never actually looked at.
+                loading="lazy"
+                decoding="async"
                 style={{
                   width: "100%",
                   borderRadius: 10,

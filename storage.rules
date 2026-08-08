@@ -9,11 +9,27 @@ service firebase.storage {
     // read and write inside their own folder, uploads are capped at 10 MB,
     // and only the types the app's picker offers are accepted. SVG is
     // deliberately excluded (script-capable when served inline).
+    //
+    // COST CONTROL: the filename must be the relay date plus one of the
+    // extensions services/storage.js derives from the MIME type. Without
+    // this, the rules permit unlimited distinct filenames per user — a
+    // signed-in attacker could loop 1.jpg, 2.jpg, ... at 10 MB each and
+    // run up an unbounded Cloud Storage bill. The date shape caps a folder
+    // at one object per date per extension.
+    //
+    // We deliberately do NOT check the date against request.time: that
+    // clock is UTC, while relay_date is the user's LOCAL date (see
+    // services/handoffs.js), so anyone far enough from UTC would be
+    // writing "tomorrow's" or "yesterday's" filename legitimately. The
+    // pattern bounds the namespace; App Check bounds who can reach it.
     match /handoffs/{userId}/{fileName} {
       allow read: if request.auth != null
                   && request.auth.uid == userId;
       allow write: if request.auth != null
                    && request.auth.uid == userId
+                   && fileName.matches(
+                        '^20\\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])\\.(jpg|png|webp|gif|heic|heif|pdf|doc|docx)$'
+                      )
                    && request.resource.size < 10 * 1024 * 1024
                    && request.resource.contentType.matches(
                         'image/jpeg|image/png|image/webp|image/gif|image/heic|image/heif|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document'

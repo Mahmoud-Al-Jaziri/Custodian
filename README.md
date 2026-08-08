@@ -52,6 +52,9 @@ VITE_FIREBASE_APP_ID=
 VITE_API_URL=http://localhost:3000/api
 # Web Push public key (npx web-push generate-vapid-keys)
 VITE_VAPID_PUBLIC_KEY=
+# App Check reCAPTCHA v3 site key (see "Abuse and cost control" below).
+# Optional locally — the app runs without it.
+VITE_RECAPTCHA_SITE_KEY=
 ```
 
 Create a `.env` file in `backend/` with:
@@ -146,7 +149,40 @@ most recent handoff before today. This handles the case where you write your
 note at 1am — technically that's today's date, but it should show up the next
 morning.
 
-Firebase Storage rules live in [`storage.rules`](storage.rules) (deploy with
-`firebase deploy --only storage` or paste into the console): users can only
-read and write their own files, uploads are capped at 10 MB, and only the
-types the app's picker offers are accepted.
+---
+
+## Abuse and cost control
+
+Attachments are the only part of this app that can generate an open-ended
+bill — everything else is Neon, Vercel, and Firebase Auth (free to 50k monthly
+active users). Two layers keep the Storage bucket bounded.
+
+**1. Rules** — [`storage.rules`](storage.rules), deployed with
+`firebase deploy --only storage` (or pasted into the console). Users can only
+read and write their own folder, uploads are capped at 10 MB, only the types
+the picker offers are accepted, and the filename must be
+`<YYYY-MM-DD>.<ext>`. That last one is the cost control: without it the rules
+allow unlimited distinct filenames per user, so one signed-in account could
+loop 10 MB uploads forever.
+
+**2. App Check** — proves a request came from this app rather than a script
+holding the (public, bundled) Firebase config. Setup:
+
+1. Firebase console → App Check → register the web app with **reCAPTCHA v3**.
+2. Put the site key in `VITE_RECAPTCHA_SITE_KEY` (locally and in Vercel's env
+   vars), then deploy.
+3. Set Cloud Storage to **Enforced**. Nothing protects the bucket until this
+   is on — registering the key and shipping the client code only makes
+   attested requests *possible*, it doesn't reject unattested ones.
+4. With an existing user base, do step 3 the slow way instead: watch App
+   Check → Metrics for a few days until verified requests plateau, then
+   enforce. Enforcing early locks out anyone still on a cached bundle —
+   which for a PWA means until they accept the refresh banner.
+
+Locally there's no attestation, so in dev the SDK prints a debug token to the
+browser console — register it under App Check → Apps → Manage debug tokens.
+The app runs fine without any of this configured; App Check simply stays off.
+
+**3. A budget alert**, which is not code: GCP console → Billing → Budgets &
+alerts. Blaze has no hard spending cap, so this is the only thing that tells
+you an attack is in progress before the invoice does.
