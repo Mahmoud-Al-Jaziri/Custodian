@@ -51,13 +51,19 @@ export default function LetterCard({
               <img
                 src={imageUrl}
                 alt="attachment from yesterday-you"
-                // The history sheet stacks seven of these. Without lazy, opening
-                // it downloads every attachment at once — most of them below the
-                // fold and never actually looked at.
+                // The history sheet stacks seven of these, and we don't want to
+                // fetch the ones below the fold. loading="lazy" alone does NOT
+                // achieve that: an <img> with no dimensions is 0px tall until it
+                // loads, so all seven collapse into a stack shorter than the
+                // viewport, the browser decides every one is visible, and
+                // fetches the lot. aspect-ratio reserves the box up front, which
+                // is what makes the deferral real — and removes the layout shift
+                // as each image pops in. Don't drop it thinking it's cosmetic.
                 loading="lazy"
                 decoding="async"
                 style={{
                   width: "100%",
+                  aspectRatio: "4 / 3",
                   borderRadius: 10,
                   objectFit: "contain",
                   maxHeight: 300,
