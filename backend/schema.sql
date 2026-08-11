@@ -25,6 +25,21 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx
   ON push_subscriptions (user_id);
 
+-- Shared weather cache. The API instance's in-memory Map can't be the only
+-- cache: serverless discards it on every cold start, so most requests would
+-- reach OpenWeather for real and burn the 1000-calls/day free tier. This table
+-- is shared by every instance and survives restarts.
+--
+-- cache_key is coarsely-rounded "lat,lon" (~11 km), so the row count is bounded
+-- by the number of distinct areas users actually live in, and ON CONFLICT keeps
+-- overwriting the same rows rather than accumulating new ones. No cleanup job
+-- needed; staleness is decided at read time, not by deleting rows.
+CREATE TABLE IF NOT EXISTS weather_cache (
+  cache_key TEXT PRIMARY KEY,
+  payload JSONB NOT NULL,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS handoffs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT REFERENCES users(id),
