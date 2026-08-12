@@ -20,18 +20,31 @@ const CACHE_TTL_MS = CACHE_TTL_MINUTES * 60 * 1000
 const CACHE_MAX_ENTRIES = 500
 const memoryCache = new Map()
 
+// Stale-row sweep. Runs on ~2% of cache misses, which is often enough to keep
+// the table small and rare enough that it never becomes the request's cost.
+const CLEANUP_PROBABILITY = 0.02
+const CACHE_RETENTION_DAYS = 7
+
+// Both tiers return { payload, at } so the ORIGINAL fetch time travels with
+// the data. Re-stamping it on promotion would let a 59-minute-old database row
+// live another full hour in memory — 2x the TTL we actually promise.
 function readMemory(key) {
   const hit = memoryCache.get(key)
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.payload
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit
   return null
 }
 
-function writeMemory(key, payload) {
-  // Bounded: drop the oldest entry once full (Map preserves insertion order).
-  if (memoryCache.size >= CACHE_MAX_ENTRIES) {
+function writeMemory(key, payload, at = Date.now()) {
+  if (memoryCache.has(key)) {
+    // Overwriting doesn't grow the Map, so there's nothing to evict. Delete
+    // first anyway: Map.set keeps an existing key's original insertion
+    // position, which would pin the busiest key at the head of the eviction
+    // queue and make it the first thing dropped.
+    memoryCache.delete(key)
+  } else if (memoryCache.size >= CACHE_MAX_ENTRIES) {
     memoryCache.delete(memoryCache.keys().next().value)
   }
-  memoryCache.set(key, { at: Date.now(), payload })
+  memoryCache.set(key, { at, payload })
 }
 
 // Both cache tiers are best-effort. Weather is a nice-to-have on the Evening
@@ -40,13 +53,15 @@ function writeMemory(key, payload) {
 async function readDatabase(key) {
   try {
     const result = await pool.query(
-      `SELECT payload
+      `SELECT payload, fetched_at
        FROM weather_cache
        WHERE cache_key = $1
        AND fetched_at > NOW() - make_interval(mins => $2)`,
       [key, CACHE_TTL_MINUTES]
     )
-    return result.rows[0]?.payload ?? null
+    const row = result.rows[0]
+    if (!row) return null
+    return { payload: row.payload, at: new Date(row.fetched_at).getTime() }
   } catch (err) {
     console.error("weather cache read failed:", err.message)
     return null
@@ -62,6 +77,22 @@ async function writeDatabase(key, payload) {
        DO UPDATE SET payload = EXCLUDED.payload, fetched_at = NOW()`,
       [key, payload]
     )
+
+    // This endpoint is public, so the key space is NOT bounded by where real
+    // users live — anyone can seed rows with arbitrary coordinates, and the
+    // rate limiter caps how fast that happens but not the total. Sweep stale
+    // rows occasionally rather than adding a cron just for this; the write
+    // path is already the slow path (we only get here on a cache miss).
+    if (Math.random() < CLEANUP_PROBABILITY) {
+      const swept = await pool.query(
+        `DELETE FROM weather_cache
+         WHERE fetched_at < NOW() - make_interval(days => $1)`,
+        [CACHE_RETENTION_DAYS]
+      )
+      if (swept.rowCount > 0) {
+        console.log(`weather cache: swept ${swept.rowCount} stale rows`)
+      }
+    }
   } catch (err) {
     console.error("weather cache write failed:", err.message)
   }
@@ -82,8 +113,9 @@ weatherRouter.get("/", async (req, res) => {
 
   const cached = readMemory(cacheKey) ?? (await readDatabase(cacheKey))
   if (cached) {
-    writeMemory(cacheKey, cached)
-    return res.status(200).json(cached)
+    // Carry cached.at through, don't restamp — see writeMemory.
+    writeMemory(cacheKey, cached.payload, cached.at)
+    return res.status(200).json(cached.payload)
   }
 
   // URLSearchParams encodes values, so nothing from the query string can

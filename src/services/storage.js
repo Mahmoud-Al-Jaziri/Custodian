@@ -43,39 +43,51 @@ const COMPRESSIBLE = new Set([
 async function compressImage(file) {
   if (!COMPRESSIBLE.has(file.type)) return null;
 
-  let bitmap;
+  // EVERYTHING here is inside the try. Compression is an optimization, so any
+  // failure must degrade to "upload the original" — never propagate. If it
+  // escaped, it would reject uploadHandoffAttachment and abort createHandoff
+  // before it POSTs, costing the user the note they just wrote and not merely
+  // the photo. getContext() returning null (iOS Safari's canvas memory
+  // ceiling) and a throwing drawImage are the realistic ways that happens.
+  let bitmap = null;
   try {
     // from-image applies the EXIF orientation tag, so portrait phone photos
-    // don't come back rotated on their side.
+    // don't come back rotated on their side. Throws on HEIC/HEIF in browsers
+    // that can't decode it, which is everything but Safari.
     bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    // Usually HEIC/HEIF on a browser that can't decode it (everything but
-    // Safari). Fall back to uploading the original.
+
+    const scale = Math.min(
+      1,
+      MAX_DIMENSION / Math.max(bitmap.width, bitmap.height)
+    );
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.drawImage(bitmap, 0, 0, width, height);
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/webp", WEBP_QUALITY)
+    );
+
+    // toBlob silently falls back to PNG where WebP encoding isn't available,
+    // and a PNG of a photo is often LARGER than the JPEG we started with. Take
+    // the result only if it's actually WebP and actually smaller.
+    if (!blob || blob.type !== "image/webp" || blob.size >= file.size) {
+      return null;
+    }
+    return blob;
+  } catch (err) {
+    console.error("Attachment compression failed, uploading original:", err);
     return null;
+  } finally {
+    bitmap?.close();
   }
-
-  const scale = Math.min(
-    1,
-    MAX_DIMENSION / Math.max(bitmap.width, bitmap.height)
-  );
-  const width = Math.round(bitmap.width * scale);
-  const height = Math.round(bitmap.height * scale);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  canvas.getContext("2d").drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-
-  const blob = await new Promise((resolve) =>
-    canvas.toBlob(resolve, "image/webp", WEBP_QUALITY)
-  );
-
-  // toBlob silently falls back to PNG where WebP encoding isn't available,
-  // and a PNG of a photo is often LARGER than the JPEG we started with. Take
-  // the result only if it's actually WebP and actually smaller.
-  if (!blob || blob.type !== "image/webp" || blob.size >= file.size) return null;
-  return blob;
 }
 
 export async function uploadHandoffAttachment(userId, date, file) {
@@ -90,7 +102,10 @@ export async function uploadHandoffAttachment(userId, date, file) {
   const upload = compressed ?? file;
   const extension = compressed ? "webp" : EXT_BY_TYPE[file.type];
 
-  if (upload.size > MAX_BYTES) {
+  // >= not >: storage.rules requires `size < 10 * 1024 * 1024`, so a file of
+  // exactly 10,485,760 bytes passes here and is then rejected by the rules —
+  // the client mirror has to be at least as strict as the server.
+  if (upload.size >= MAX_BYTES) {
     throw new Error("That attachment is too big — 10 MB max.");
   }
 

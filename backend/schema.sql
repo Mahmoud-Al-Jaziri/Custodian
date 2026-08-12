@@ -30,10 +30,12 @@ CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx
 -- reach OpenWeather for real and burn the 1000-calls/day free tier. This table
 -- is shared by every instance and survives restarts.
 --
--- cache_key is coarsely-rounded "lat,lon" (~11 km), so the row count is bounded
--- by the number of distinct areas users actually live in, and ON CONFLICT keeps
--- overwriting the same rows rather than accumulating new ones. No cleanup job
--- needed; staleness is decided at read time, not by deleting rows.
+-- cache_key is coarsely-rounded "lat,lon" (~11 km). Real users only ever
+-- produce a handful of keys, but the weather endpoint is public, so the key
+-- space is NOT bounded by where users live — anyone can seed rows with
+-- arbitrary coordinates. Staleness is decided at read time; routes/weather.js
+-- sweeps rows older than a week on a small fraction of cache misses to keep
+-- the table from growing without limit.
 CREATE TABLE IF NOT EXISTS weather_cache (
   cache_key TEXT PRIMARY KEY,
   payload JSONB NOT NULL,

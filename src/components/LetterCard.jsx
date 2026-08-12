@@ -7,7 +7,14 @@ export default function LetterCard({
   imageUrl
 })
  {
-  const isPdf = imageUrl?.toLowerCase().includes(".pdf")
+  // Which attachments get a link instead of an <img>. The picker accepts Word
+  // documents too, and they used to fall through to the image branch and
+  // render as a small broken icon — with the reserved 4:3 box that became a
+  // full-width empty panel, so this is no longer merely untidy.
+  //
+  // Tested for documents rather than images on purpose: guests pass a
+  // blob: URL with no extension at all, and those are always images.
+  const isDocument = /\.(pdf|docx?)(\?|$)/i.test(imageUrl ?? "")
   return (
     <Card className="letter-card border-0 border-amber-left mb-3">
       <Card.Body className="p-3">
@@ -30,7 +37,7 @@ export default function LetterCard({
         
         {imageUrl && (
           <div className="mt-3">
-            {isPdf ? (
+            {isDocument ? (
               <a
                 href={imageUrl}
                 target="_blank"
