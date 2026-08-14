@@ -55,6 +55,8 @@ VITE_VAPID_PUBLIC_KEY=
 # App Check reCAPTCHA v3 site key (see "Abuse and cost control" below).
 # Optional locally — the app runs without it.
 VITE_RECAPTCHA_SITE_KEY=
+# Sentry DSN (see "Error reporting" below). Optional — app runs without it.
+VITE_SENTRY_DSN=
 ```
 
 Create a `.env` file in `backend/` with:
@@ -75,6 +77,8 @@ VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:you@example.com
 # Shared secret for the reminder scheduler (any long random string)
 CRON_SECRET=
+# Sentry DSN (see "Error reporting" below). Optional — app runs without it.
+SENTRY_DSN=
 ```
 
 Start the backend:
@@ -186,3 +190,35 @@ The app runs fine without any of this configured; App Check simply stays off.
 **3. A budget alert**, which is not code: GCP console → Billing → Budgets &
 alerts. Blaze has no hard spending cap, so this is the only thing that tells
 you an attack is in progress before the invoice does.
+
+---
+
+## Error reporting
+
+Sentry, on both ends, so production failures surface without a user having to
+report them. Entirely optional: with no DSN set, the SDK never initialises and
+the app behaves exactly as before.
+
+Setup: create a project at sentry.io (platform: React), then set
+`VITE_SENTRY_DSN` in the root `.env` **and** in Vercel's env vars for the
+frontend project, and `SENTRY_DSN` in `backend/.env` and the backend project.
+Vite inlines env vars at build time, so a DSN added after a deploy needs a
+redeploy to take effect.
+
+What's deliberate about the setup:
+
+- **No PII, no tracing, no Session Replay.** This app holds people's private
+  reflections. Replay would literally record someone typing tonight's note.
+- **Query strings are stripped** from reported URLs and breadcrumbs. Not
+  theoretical — `/api/weather?lat=..&lon=..` is the user's precise location,
+  and it would otherwise ride along on unrelated error reports.
+- **CORS rejections aren't reported.** A blocked origin is routine noise, not
+  a bug, and it would bury real errors.
+- The backend does **not** use Sentry's `--import` auto-instrumentation, which
+  needs control of the node invocation that Vercel's serverless runtime
+  doesn't give us. Tracing and rich request context are the cost; every error
+  reaching the central handler is still reported.
+
+The frontend also has an error boundary ([`src/components/ErrorFallback.jsx`](src/components/ErrorFallback.jsx))
+around the whole tree, so a render crash shows a "reload" screen instead of
+a white page. That works with or without a DSN.

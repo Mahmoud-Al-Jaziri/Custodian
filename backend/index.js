@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
@@ -6,6 +7,33 @@ import handoffsRouter from "./routes/handoffs.js";
 import weatherRouter from "./routes/weather.js";
 import notificationsRouter from "./routes/notifications.js";
 import { verifyToken } from "./middleware/auth.js";
+
+// Error reporting. Guarded on the DSN so local dev and any environment without
+// the secret runs unchanged; Sentry's calls are no-ops until init() runs.
+//
+// Deliberately NOT using the --import/instrument.mjs auto-instrumentation the
+// docs recommend. That requires controlling the node invocation, which we don't
+// on Vercel's serverless runtime. The cost is automatic tracing and richer
+// request context; what we keep is the part that matters — every error reaching
+// the central handler below gets reported.
+//
+// PRIVACY: same reasoning as src/sentry.js. No PII, no tracing, and query
+// strings are stripped because /api/weather carries the user's coordinates.
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.VERCEL_ENV || "development",
+    sendDefaultPii: false,
+    tracesSampleRate: 0,
+    beforeSend(event) {
+      if (event.request?.url) {
+        event.request.url = String(event.request.url).split("?")[0];
+      }
+      delete event.request?.query_string;
+      return event;
+    },
+  });
+}
 
 const app = express();
 
@@ -75,6 +103,10 @@ app.use((err, req, res, next) => {
     return res.status(403).json({ error: "Origin not allowed" });
   }
   console.error(err);
+  // Reported after the CORS early-return on purpose: a blocked origin is
+  // routine (someone hitting a preview URL, a scraper) rather than a bug, and
+  // reporting it would bury real errors under noise.
+  Sentry.captureException(err);
   res.status(500).json({ error: "Something went wrong" });
 });
 
