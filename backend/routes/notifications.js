@@ -1,8 +1,8 @@
 import { Router } from "express";
 import webpush from "web-push";
-import crypto from "node:crypto";
 import pool from "../db.js";
 import { verifyToken } from "../middleware/auth.js";
+import { hasCronSecret } from "../middleware/cronSecret.js";
 
 const notificationsRouter = Router();
 
@@ -50,13 +50,6 @@ function localParts(timezone, date = new Date()) {
     date: `${get("year")}-${get("month")}-${get("day")}`,
     hour: Number(get("hour")),
   };
-}
-
-// Constant-time comparison for the cron secret.
-function safeEqual(a, b) {
-  const bufA = Buffer.from(String(a || ""));
-  const bufB = Buffer.from(String(b || ""));
-  return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
 }
 
 // SUBSCRIBE / UPDATE — store this device's push subscription plus the user's
@@ -159,8 +152,7 @@ notificationsRouter.get("/settings", verifyToken, async (req, res) => {
 // (with a one-hour grace window for scheduler lag), they haven't been
 // reminded today, and they haven't already written tonight's handoff, send.
 notificationsRouter.post("/dispatch", async (req, res) => {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || !safeEqual(req.get("x-cron-secret"), secret)) {
+  if (!hasCronSecret(req)) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   if (!vapidConfigured) {

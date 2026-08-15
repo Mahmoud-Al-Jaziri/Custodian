@@ -222,3 +222,30 @@ What's deliberate about the setup:
 The frontend also has an error boundary ([`src/components/ErrorFallback.jsx`](src/components/ErrorFallback.jsx))
 around the whole tree, so a render crash shows a "reload" screen instead of
 a white page. That works with or without a DSN.
+
+### Checking it still works
+
+Reporting fails silently by design — you only notice it's broken at the exact
+moment you need it. Both ends can be smoke-tested on demand.
+
+**Frontend** — in the browser console on the deployed site:
+
+```js
+setTimeout(() => { throw new Error("sentry smoke test"); });
+```
+
+The `setTimeout` matters: it makes the throw asynchronous so it reaches
+`window.onerror`, which is the handler Sentry hooks. Throwing directly in the
+console gets caught by devtools instead.
+
+**Backend** — `GET /api/debug/error` raises a deliberate 500. It's gated behind
+the same `x-cron-secret` header the reminder dispatch uses, and answers 404
+(not 401) without it, so it neither advertises itself nor gives anyone a way to
+run up the Sentry error quota:
+
+```bash
+curl -H "x-cron-secret: $CRON_SECRET" https://<backend>/api/debug/error
+```
+
+Both should appear in Sentry within a minute, tagged with the environment they
+came from.

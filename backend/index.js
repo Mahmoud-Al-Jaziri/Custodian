@@ -7,6 +7,7 @@ import handoffsRouter from "./routes/handoffs.js";
 import weatherRouter from "./routes/weather.js";
 import notificationsRouter from "./routes/notifications.js";
 import { verifyToken } from "./middleware/auth.js";
+import { hasCronSecret } from "./middleware/cronSecret.js";
 
 // Error reporting. Guarded on the DSN so local dev and any environment without
 // the secret runs unchanged; Sentry's calls are no-ops until init() runs.
@@ -93,6 +94,22 @@ app.use("/api/notifications", notificationsRouter);
 // involved, so it's intentionally not gated by verifyToken — guests need
 // access too. Rate-limited and cached to protect the API key.
 app.use("/api/weather", weatherLimiter, weatherRouter);
+
+// Deliberate 500, for confirming the Sentry pipeline still reaches the
+// dashboard. Every other route handles its own errors properly, so without
+// this there is no way to prove backend reporting works until something
+// genuinely breaks — which is the worst moment to discover it doesn't.
+//
+// Gated behind the scheduler secret and answering 404 (not 401) when it's
+// wrong, so the route doesn't advertise itself or give anyone a way to run up
+// the Sentry error quota. It throws via next() rather than directly so it
+// travels the real error path below, not a special case.
+app.get("/api/debug/error", (req, res, next) => {
+  if (!hasCronSecret(req)) {
+    return res.status(404).json({ error: "Not found" });
+  }
+  next(new Error("Sentry backend smoke test — triggered deliberately"));
+});
 
 // Central error handler. Express 5 forwards rejected async handlers here.
 // Log the real error server-side; never echo internals (DB error messages
