@@ -3,6 +3,7 @@ import webpush from "web-push";
 import pool from "../db.js";
 import { verifyToken } from "../middleware/auth.js";
 import { hasCronSecret } from "../middleware/cronSecret.js";
+import { isDue } from "../lib/reminderSchedule.js";
 
 const notificationsRouter = Router();
 
@@ -159,17 +160,28 @@ notificationsRouter.post("/dispatch", async (req, res) => {
     return res.status(503).json({ error: "Push is not configured" });
   }
 
-  const { rows: subs } = await pool.query(`SELECT * FROM push_subscriptions`);
+  // The ::text cast is load-bearing. node-pg parses a DATE column into a JS
+  // Date, so String(thatDate).slice(0, 10) yielded "Wed Aug 26" — never equal
+  // to the "2026-08-26" it was compared against. The already-reminded-today
+  // check silently always failed, so the grace hour always fired a SECOND
+  // notification. The handoffs query below casts for exactly this reason.
+  const { rows: subs } = await pool.query(
+    `SELECT *, last_sent_date::text AS last_sent_date_text
+     FROM push_subscriptions`
+  );
 
   const due = [];
   for (const s of subs) {
     const { date, hour } = localParts(s.timezone);
-    const lastSent = s.last_sent_date
-      ? String(s.last_sent_date).slice(0, 10)
-      : null;
-    const inWindow =
-      hour === s.remind_hour || hour === (s.remind_hour + 1) % 24;
-    if (inWindow && lastSent !== date) due.push({ ...s, localDate: date });
+    // isDue throws if lastSentDate isn't a string or null, so the bug above
+    // can only ever come back loudly. See lib/reminderSchedule.js.
+    const dueNow = isDue({
+      remindHour: s.remind_hour,
+      lastSentDate: s.last_sent_date_text,
+      localDate: date,
+      localHour: hour,
+    });
+    if (dueNow) due.push({ ...s, localDate: date });
   }
 
   if (due.length === 0) {

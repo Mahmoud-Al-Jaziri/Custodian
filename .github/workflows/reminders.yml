@@ -6,14 +6,24 @@
 # CRON_SECRET env var (Settings → Secrets and variables → Actions).
 #
 # NOTE: GitHub pauses scheduled workflows after ~60 days without repo
-# activity — a commit re-enables them. Schedules can also lag a few minutes,
-# which the dispatch endpoint absorbs with a one-hour grace window.
+# activity — a commit re-enables them.
+#
+# The :07 offset is deliberate. GitHub schedules are best-effort and are
+# delayed most at the START OF EACH HOUR, because that is when everyone
+# schedules. Running at :00 was reliably arriving ~20 minutes late; an
+# off-peak minute usually lands sooner in wall-clock terms even though it is
+# nominally scheduled later. Whatever lag remains is absorbed by the dispatch
+# endpoint's one-hour grace window.
+#
+# This is a trigger, not a clock. If reminders ever need to land ON the hour,
+# the fix is an external scheduler calling /api/notifications/dispatch — not
+# more tuning here.
 
 name: Evening reminders
 
 on:
   schedule:
-    - cron: "0 * * * *" # hourly, on the hour (UTC)
+    - cron: "7 * * * *" # hourly at :07 UTC — deliberately NOT :00
   workflow_dispatch: {} # manual "Run workflow" button for testing
 
 jobs:
