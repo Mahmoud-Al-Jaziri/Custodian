@@ -8,22 +8,25 @@
 # NOTE: GitHub pauses scheduled workflows after ~60 days without repo
 # activity — a commit re-enables them.
 #
-# The :07 offset is deliberate. GitHub schedules are best-effort and are
-# delayed most at the START OF EACH HOUR, because that is when everyone
-# schedules. Running at :00 was reliably arriving ~20 minutes late; an
-# off-peak minute usually lands sooner in wall-clock terms even though it is
-# nominally scheduled later. Whatever lag remains is absorbed by the dispatch
-# endpoint's one-hour grace window.
+# Schedule minute: KEEP THIS AT :00 UNLESS YOU HAVE EVIDENCE.
 #
-# This is a trigger, not a clock. If reminders ever need to land ON the hour,
-# the fix is an external scheduler calling /api/notifications/dispatch — not
-# more tuning here.
+# GitHub docs say schedules are delayed most at the top of the hour, so on
+# 2026-08-27 this was moved to :07 to reduce the ~20 minute lag. The result was
+# far worse: scheduled runs collapsed from ~23/day to 1-2/day, and the 18:00
+# reminder window was missed entirely on 08-27 and 08-28. Reverted to :00,
+# which empirically ran ~17-23 times a day.
+#
+# Even at :00 this is unreliable — 2026-08-22 also missed the window. GitHub
+# cron is a trigger, not a clock. The real fix for reminders that must actually
+# arrive is an external scheduler (e.g. cron-job.org) calling
+# POST /api/notifications/dispatch with the same x-cron-secret header. No
+# backend change is needed to switch; only this file becomes redundant.
 
 name: Evening reminders
 
 on:
   schedule:
-    - cron: "7 * * * *" # hourly at :07 UTC — deliberately NOT :00
+    - cron: "0 * * * *" # hourly (UTC). See the note above before changing.
   workflow_dispatch: {} # manual "Run workflow" button for testing
 
 jobs:
