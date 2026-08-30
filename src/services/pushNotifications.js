@@ -29,9 +29,28 @@ export function pushSupport() {
   return { supported: false, needsInstall: isIos && !standalone };
 }
 
+// How long to wait for the service worker to finish registering before giving
+// up and reporting reminders as unavailable.
+const SW_READY_TIMEOUT_MS = 5000;
+
 async function getRegistration() {
   if (!("serviceWorker" in navigator)) return null;
-  return (await navigator.serviceWorker.getRegistration()) ?? null;
+
+  // getRegistration() reports whatever exists RIGHT NOW; it does not wait. The
+  // worker is registered by useRegisterSW inside <UpdateBanner />, so on a cold
+  // start this can be asked first and answer undefined — which the UI then
+  // showed as "Reminders are available in the installed app" to someone already
+  // standing in the installed app.
+  const existing = await navigator.serviceWorker.getRegistration();
+  if (existing) return existing;
+
+  // .ready waits for an active registration, but never settles when nothing
+  // ever registers (`npm run dev` ships no service worker), so it has to be
+  // raced against a timeout or the card sits on "Checking…" forever.
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((resolve) => setTimeout(resolve, SW_READY_TIMEOUT_MS, null)),
+  ]);
 }
 
 async function authHeaders() {
