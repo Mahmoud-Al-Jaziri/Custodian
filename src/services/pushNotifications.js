@@ -72,9 +72,15 @@ export async function getReminderState() {
     : { available: true, enabled: false };
 }
 
-// Enable (or re-time) the reminder. Must be called from a user gesture —
-// browsers only allow the permission prompt in direct response to a tap.
-export async function enableReminders(hour = 21) {
+// The hour reminders fire. Display only — the backend sets the stored value
+// and ignores anything the client sends, so this constant existing here can't
+// put the two out of step; at worst the label is stale until a redeploy.
+export const REMINDER_HOUR = 20;
+export const REMINDER_LABEL = `${String(REMINDER_HOUR).padStart(2, "0")}:00`;
+
+// Enable the reminder. Must be called from a user gesture — browsers only
+// allow the permission prompt in direct response to a tap.
+export async function enableReminders() {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
     throw new Error(
@@ -99,9 +105,9 @@ export async function enableReminders(hour = 21) {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify({
+      // No remindHour: the hour is fixed server-side.
       subscription: sub.toJSON(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      remindHour: hour,
     }),
   });
   if (!res.ok) {

@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   p256dh TEXT NOT NULL,
   auth TEXT NOT NULL,
   timezone TEXT NOT NULL DEFAULT 'UTC',
-  remind_hour INT NOT NULL DEFAULT 21 CHECK (remind_hour BETWEEN 0 AND 23),
+  -- Fixed at 20:00 for everyone; the picker was removed. Kept as a column
+  -- rather than hardcoded so the hour can move without a schema change, and
+  -- so dispatch keeps reading one value per row. See lib/reminderSchedule.js.
+  remind_hour INT NOT NULL DEFAULT 20 CHECK (remind_hour BETWEEN 0 AND 23),
   last_sent_date DATE,              -- user-local date of the last send (dedupe)
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

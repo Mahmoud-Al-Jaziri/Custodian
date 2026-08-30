@@ -27,3 +27,13 @@ export function isDue({ remindHour, lastSentDate, localDate, localHour }) {
 
   return inWindow && lastSentDate !== localDate;
 }
+
+// The one hour reminders fire, for everyone. Previously user-selectable; now
+// fixed, because a nightly "before you sleep" nudge doesn't need a preference
+// and every extra setting is another thing to explain and support.
+//
+// The server owns this value. /subscribe ignores whatever hour a client sends,
+// so an old cached bundle still posting remindHour can't opt itself out of the
+// change. Moving it means updating this constant AND the existing rows:
+//   UPDATE push_subscriptions SET remind_hour = <new>;
+export const REMINDER_HOUR = 20;

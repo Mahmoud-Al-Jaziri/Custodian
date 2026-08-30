@@ -3,7 +3,7 @@ import webpush from "web-push";
 import pool from "../db.js";
 import { verifyToken } from "../middleware/auth.js";
 import { hasCronSecret } from "../middleware/cronSecret.js";
-import { isDue } from "../lib/reminderSchedule.js";
+import { isDue, REMINDER_HOUR } from "../lib/reminderSchedule.js";
 
 const notificationsRouter = Router();
 
@@ -62,7 +62,10 @@ notificationsRouter.post("/subscribe", verifyToken, async (req, res) => {
     return res.status(503).json({ error: "Push is not configured" });
   }
 
-  const { subscription, timezone, remindHour } = req.body;
+  // remindHour is intentionally NOT read from the body. The reminder hour is
+  // fixed server-side (see REMINDER_HOUR), so an older cached bundle still
+  // posting its own hour is simply ignored rather than honoured.
+  const { subscription, timezone } = req.body;
   const endpoint = subscription?.endpoint;
   const p256dh = subscription?.keys?.p256dh;
   const authKey = subscription?.keys?.auth;
@@ -77,10 +80,7 @@ notificationsRouter.post("/subscribe", verifyToken, async (req, res) => {
     return res.status(400).json({ error: "Invalid push subscription" });
   }
 
-  const hour =
-    Number.isInteger(remindHour) && remindHour >= 0 && remindHour <= 23
-      ? remindHour
-      : 21;
+  const hour = REMINDER_HOUR;
   const tz = isValidTimezone(timezone) ? timezone : "UTC";
   const userId = req.user.uid;
 
